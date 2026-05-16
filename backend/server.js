@@ -37,7 +37,15 @@ const skills    = JSON.parse(await readFile(join(__dirname, 'data/skills.json'),
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 
-app.use(cors())
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    /\.vercel\.app$/,
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}))
 app.use(express.json())
 
 app.use((req, _res, next) => {
