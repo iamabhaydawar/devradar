@@ -6,9 +6,22 @@ import { readFile } from 'fs/promises'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
-import { getUser, updateSession } from './hydradb.js'
-import { analyzeGaps } from './claude.js'
-import { matchStartups, filterHackathons } from './analyzer.js'
+import {
+  initUser,
+  getUser,
+  updateStack,
+  recordStartupView,
+  recordHackathonView,
+  saveGapAnalysis,
+  getReturnContext,
+} from './hydradb.js'
+
+import {
+  analyzeStackVsStartup,
+  generateGapReport,
+  generateInterviewQuestions,
+  matchHackathons,
+} from './claude.js'
 
 dotenv.config()
 
@@ -16,100 +29,228 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 3001
 
+// ── Load static data ──────────────────────────────────────────────────────────
+
+const startups  = JSON.parse(await readFile(join(__dirname, 'data/startups.json'),  'utf8'))
+const hackathons = JSON.parse(await readFile(join(__dirname, 'data/hackathons.json'), 'utf8'))
+const skills    = JSON.parse(await readFile(join(__dirname, 'data/skills.json'),    'utf8'))
+
+// ── Middleware ────────────────────────────────────────────────────────────────
+
 app.use(cors())
 app.use(express.json())
 
-const startups = JSON.parse(await readFile(join(__dirname, 'data/startups.json'), 'utf8'))
-const hackathons = JSON.parse(await readFile(join(__dirname, 'data/hackathons.json'), 'utf8'))
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`)
+  next()
+})
 
-// ── Routes ──────────────────────────────────────────────────────────────────
+// ── Internal helpers ──────────────────────────────────────────────────────────
 
+function basicMatchScore(userStack, startup) {
+  const userNorm = userStack.map(s => s.toLowerCase().trim())
+  const required = startup.skills_required.map(s => s.toLowerCase())
+  const matched  = userNorm.filter(s => required.some(r => r.includes(s) || s.includes(r)))
+  return Math.round((matched.length / Math.max(required.length, 1)) * 100)
+}
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+
+// Health
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    hydradb: Boolean(process.env.HYDRADB_API_KEY),
+    claude:  Boolean(process.env.ANTHROPIC_API_KEY),
+  })
 })
 
-app.get('/api/startups', (_req, res) => {
-  res.json(startups)
+// POST /api/user/init
+app.post('/api/user/init', async (req, res) => {
+  try {
+    const { stack = [], experience = '0-1 years', goals = [] } = req.body
+    const userId = uuidv4()
+
+    const user = await initUser({
+      userId,
+      stack,
+      experience,
+      goals,
+      created_at: new Date().toISOString(),
+    })
+
+    res.status(201).json({ userId, message: 'Profile created', user })
+  } catch (err) {
+    console.error('[POST /api/user/init]', err.message)
+    res.status(500).json({ error: err.message })
+  }
 })
 
-app.get('/api/hackathons', (_req, res) => {
-  res.json(hackathons)
-})
-
+// GET /api/user/:userId
 app.get('/api/user/:userId', async (req, res) => {
   try {
     const user = await getUser(req.params.userId)
     if (!user) return res.status(404).json({ error: 'User not found' })
     res.json(user)
   } catch (err) {
+    console.error('[GET /api/user/:userId]', err.message)
     res.status(500).json({ error: err.message })
   }
 })
 
-// Core endpoint: stack analysis + HydraDB persistence
+// POST /api/user/:userId/stack
+app.post('/api/user/:userId/stack', async (req, res) => {
+  try {
+    const { stack } = req.body
+    if (!Array.isArray(stack) || stack.length === 0) {
+      return res.status(400).json({ error: 'stack must be a non-empty array' })
+    }
+    await updateStack(req.params.userId, stack)
+    res.json({ updated: true })
+  } catch (err) {
+    console.error('[POST /api/user/:userId/stack]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /api/analyze
 app.post('/api/analyze', async (req, res) => {
   try {
-    const { userId: existingUserId, stack } = req.body
+    const { userId, stack, experience } = req.body
 
-    if (!stack || !Array.isArray(stack) || stack.length === 0) {
-      return res.status(400).json({ error: 'stack must be a non-empty array of strings' })
+    if (!userId) return res.status(400).json({ error: 'userId is required' })
+    if (!Array.isArray(stack) || stack.length === 0) {
+      return res.status(400).json({ error: 'stack must be a non-empty array' })
     }
 
-    const userId = existingUserId || uuidv4()
-    const isReturning = Boolean(existingUserId)
+    // Basic match score for all startups
+    const scored = startups.map(startup => ({
+      ...startup,
+      match_score: basicMatchScore(stack, startup),
+    })).sort((a, b) => b.match_score - a.match_score)
 
-    const userProfile = isReturning ? await getUser(userId) : null
+    // Deep Claude analysis for top 5
+    const top5 = scored.slice(0, 5)
+    const claudeResults = await Promise.allSettled(
+      top5.map(startup => analyzeStackVsStartup(stack, startup))
+    )
 
-    const matchedStartups = matchStartups(stack, startups)
-    const matchedHackathons = filterHackathons(stack, hackathons)
-    const gapAnalysis = await analyzeGaps(stack, matchedStartups, userProfile)
+    const enrichedTop5 = top5.map((startup, i) => ({
+      ...startup,
+      claude_analysis: claudeResults[i].status === 'fulfilled'
+        ? claudeResults[i].value
+        : { match_percentage: startup.match_score, matching_skills: [], missing_skills: [], assessment: '', recommended_action: '' },
+    }))
 
-    const session = {
-      timestamp: new Date().toISOString(),
-      stack,
-      startupsViewed: matchedStartups.slice(0, 3).map(s => s.name),
-      gapAnalysis: gapAnalysis.summary,
-      hackathonsBookmarked: [],
+    // Merge enriched top 5 back, keep rest as-is
+    const top5Ids = new Set(top5.map(s => s.id))
+    const enrichedMap = new Map(enrichedTop5.map(s => [s.id, s]))
+    const allStartups = scored.map(s => enrichedMap.get(s.id) ?? s)
+
+    // Record top match view in HydraDB
+    const topMatch = enrichedTop5[0]
+    if (topMatch) {
+      await recordStartupView(userId, topMatch.id, topMatch.name)
     }
 
-    await updateSession(userId, session, stack)
+    // Update stack in HydraDB
+    await updateStack(userId, stack)
 
     res.json({
-      userId,
-      isReturning,
-      matchedStartups,
-      matchedHackathons,
-      gapAnalysis,
-      sessionCount: (userProfile?.profile?.totalSessions ?? 0) + 1,
+      startups: allStartups,
+      topMatch: topMatch ?? null,
+      total: allStartups.length,
     })
   } catch (err) {
-    console.error('[/api/analyze]', err)
+    console.error('[POST /api/analyze]', err.message)
     res.status(500).json({ error: err.message })
   }
 })
 
-// Bookmark a startup or hackathon (persisted in HydraDB)
-app.post('/api/user/:userId/bookmark', async (req, res) => {
+// POST /api/gaps
+app.post('/api/gaps', async (req, res) => {
   try {
-    const { type, name } = req.body
-    if (!type || !name) return res.status(400).json({ error: 'type and name required' })
+    const { userId, stack, targetCompanies } = req.body
 
-    const user = await getUser(req.params.userId)
-    if (!user) return res.status(404).json({ error: 'User not found' })
-
-    const field = type === 'startup' ? 'bookmarkedStartups' : 'bookmarkedHackathons'
-    if (!user.profile[field].includes(name)) {
-      user.profile[field].push(name)
-      const { saveUser } = await import('./hydradb.js')
-      await saveUser(req.params.userId, user.profile)
+    if (!userId) return res.status(400).json({ error: 'userId is required' })
+    if (!Array.isArray(stack) || stack.length === 0) {
+      return res.status(400).json({ error: 'stack must be a non-empty array' })
     }
 
-    res.json({ success: true, bookmarks: user.profile[field] })
+    // Resolve company names to full startup objects
+    const targets = Array.isArray(targetCompanies) && targetCompanies.length > 0
+      ? startups.filter(s => targetCompanies.includes(s.name) || targetCompanies.includes(s.id))
+      : startups.slice(0, 5) // Default to top 5 if none specified
+
+    const report = await generateGapReport(stack, targets)
+    await saveGapAnalysis(userId, { ...report, stack, targets: targets.map(t => t.name) })
+
+    res.json(report)
   } catch (err) {
+    console.error('[POST /api/gaps]', err.message)
     res.status(500).json({ error: err.message })
   }
 })
 
+// GET /api/hackathons/:userId
+app.get('/api/hackathons/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params
+    const rawStack = req.query.stack ?? ''
+    const stack = rawStack ? rawStack.split(',').map(s => s.trim()).filter(Boolean) : []
+
+    if (stack.length === 0) {
+      return res.json({ ranked_hackathons: hackathons.map(h => ({ ...h, match_score: 0 })) })
+    }
+
+    const { ranked_hackathons } = await matchHackathons(stack, hackathons)
+
+    // Record top hackathon view in HydraDB
+    const top = ranked_hackathons[0]
+    if (top) {
+      await recordHackathonView(userId, top.id, top.name)
+    }
+
+    res.json({ ranked_hackathons })
+  } catch (err) {
+    console.error('[GET /api/hackathons/:userId]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/return-context/:userId
+app.get('/api/return-context/:userId', async (req, res) => {
+  try {
+    const context = await getReturnContext(req.params.userId, startups, hackathons)
+    res.json(context)
+  } catch (err) {
+    console.error('[GET /api/return-context/:userId]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/skills
+app.get('/api/skills', (_req, res) => {
+  res.json(skills)
+})
+
+// ── Error middleware ──────────────────────────────────────────────────────────
+
+app.use((err, _req, res, _next) => {
+  console.error('[Unhandled error]', err.message)
+  res.status(500).json({ error: 'Internal server error', detail: err.message })
+})
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+
 app.listen(PORT, () => {
-  console.log(`DevRadar backend on http://localhost:${PORT}`)
+  console.log('─────────────────────────────────────────')
+  console.log(`  DevRadar backend   http://localhost:${PORT}`)
+  console.log(`  HydraDB            ${process.env.HYDRADB_API_KEY ? '✓ key set' : '✗ using local Map fallback'}`)
+  console.log(`  Claude             ${process.env.ANTHROPIC_API_KEY ? '✓ key set' : '✗ missing key'}`)
+  console.log(`  Startups loaded    ${startups.length}`)
+  console.log(`  Hackathons loaded  ${hackathons.length}`)
+  console.log(`  Skills loaded      ${skills.length}`)
+  console.log('─────────────────────────────────────────')
 })
