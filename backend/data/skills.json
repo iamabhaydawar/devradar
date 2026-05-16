@@ -1,0 +1,106 @@
+{
+  "categories": [
+    {
+      "name": "Frontend",
+      "skills": [
+        { "name": "React", "aliases": ["reactjs", "react.js"], "related": ["TypeScript", "Redux", "Next.js", "Vite"] },
+        { "name": "Next.js", "aliases": ["nextjs"], "related": ["React", "TypeScript", "Vercel"] },
+        { "name": "TypeScript", "aliases": ["ts"], "related": ["JavaScript", "React", "Node.js"] },
+        { "name": "JavaScript", "aliases": ["js", "es6", "vanilla js"], "related": ["TypeScript", "Node.js", "React"] },
+        { "name": "Vue", "aliases": ["vuejs", "vue.js"], "related": ["JavaScript", "TypeScript"] },
+        { "name": "Angular", "aliases": ["angularjs"], "related": ["TypeScript", "RxJS"] },
+        { "name": "Tailwind CSS", "aliases": ["tailwind", "tailwindcss"], "related": ["CSS", "React"] },
+        { "name": "CSS", "aliases": ["css3", "scss", "sass"], "related": ["HTML", "JavaScript"] }
+      ]
+    },
+    {
+      "name": "Backend",
+      "skills": [
+        { "name": "Node.js", "aliases": ["nodejs", "node"], "related": ["Express", "TypeScript", "JavaScript"] },
+        { "name": "Python", "aliases": ["python3", "py"], "related": ["Django", "FastAPI", "Flask", "Machine Learning"] },
+        { "name": "Go", "aliases": ["golang"], "related": ["Kubernetes", "Docker", "gRPC"] },
+        { "name": "Java", "aliases": ["java8", "java11", "java17"], "related": ["Spring Boot", "Maven", "Kafka"] },
+        { "name": "Spring Boot", "aliases": ["spring", "springboot"], "related": ["Java", "PostgreSQL", "Kafka"] },
+        { "name": "Django", "aliases": ["django rest"], "related": ["Python", "PostgreSQL", "Redis"] },
+        { "name": "FastAPI", "aliases": ["fast api"], "related": ["Python", "Pydantic", "PostgreSQL"] },
+        { "name": "Express", "aliases": ["express.js", "expressjs"], "related": ["Node.js", "MongoDB", "PostgreSQL"] },
+        { "name": "Ruby on Rails", "aliases": ["rails", "ruby", "ror"], "related": ["PostgreSQL", "Redis"] },
+        { "name": "Rust", "aliases": [], "related": ["WebAssembly", "Systems Programming"] },
+        { "name": "GraphQL", "aliases": ["gql"], "related": ["Hasura", "Apollo", "Node.js"] }
+      ]
+    },
+    {
+      "name": "Database",
+      "skills": [
+        { "name": "PostgreSQL", "aliases": ["postgres", "psql"], "related": ["SQL", "Prisma", "SQLAlchemy"] },
+        { "name": "MySQL", "aliases": ["sql"], "related": ["PostgreSQL", "ORM"] },
+        { "name": "MongoDB", "aliases": ["mongo"], "related": ["NoSQL", "Mongoose", "Atlas"] },
+        { "name": "Redis", "aliases": ["redis cache"], "related": ["Caching", "Pub/Sub", "Node.js"] },
+        { "name": "HydraDB", "aliases": ["hydra db", "hydra"], "related": ["Persistent Memory", "Key-Value", "NoSQL"] },
+        { "name": "Elasticsearch", "aliases": ["elastic", "elk"], "related": ["Search", "Kibana", "Logstash"] },
+        { "name": "DynamoDB", "aliases": ["dynamo"], "related": ["AWS", "NoSQL", "Serverless"] }
+      ]
+    },
+    {
+      "name": "Mobile",
+      "skills": [
+        { "name": "React Native", "aliases": ["rn", "react-native"], "related": ["React", "Expo", "TypeScript"] },
+        { "name": "Kotlin", "aliases": ["android", "android kotlin"], "related": ["Android", "Jetpack Compose"] },
+        { "name": "Swift", "aliases": ["swiftui", "ios"], "related": ["iOS", "Xcode", "Combine"] },
+        { "name": "Flutter", "aliases": ["dart"], "related": ["Dart", "Firebase"] }
+      ]
+    },
+    {
+      "name": "Cloud & DevOps",
+      "skills": [
+        { "name": "AWS", "aliases": ["amazon web services", "ec2", "s3", "lambda"], "related": ["Docker", "Kubernetes", "Terraform"] },
+        { "name": "GCP", "aliases": ["google cloud", "google cloud platform"], "related": ["Firebase", "BigQuery", "Kubernetes"] },
+        { "name": "Azure", "aliases": ["microsoft azure"], "related": ["AKS", "Cognitive Services", "DevOps"] },
+        { "name": "Docker", "aliases": ["containers", "dockerfile"], "related": ["Kubernetes", "CI/CD"] },
+        { "name": "Kubernetes", "aliases": ["k8s", "k8"], "related": ["Docker", "Helm", "AWS", "GCP"] },
+        { "name": "CI/CD", "aliases": ["github actions", "jenkins", "circleci", "devops"], "related": ["Docker", "Testing"] },
+        { "name": "Terraform", "aliases": ["iac", "infrastructure as code"], "related": ["AWS", "GCP", "Kubernetes"] }
+      ]
+    },
+    {
+      "name": "Data & AI",
+      "skills": [
+        { "name": "Machine Learning", "aliases": ["ml", "machine learning engineer"], "related": ["Python", "TensorFlow", "PyTorch"] },
+        { "name": "TensorFlow", "aliases": ["tf"], "related": ["Python", "Keras", "ML"] },
+        { "name": "PyTorch", "aliases": ["torch"], "related": ["Python", "ML", "Deep Learning"] },
+        { "name": "Apache Spark", "aliases": ["spark", "pyspark"], "related": ["Python", "Kafka", "Hadoop"] },
+        { "name": "Kafka", "aliases": ["apache kafka", "event streaming"], "related": ["Java", "Python", "Redis"] },
+        { "name": "Data Science", "aliases": ["pandas", "numpy", "jupyter"], "related": ["Python", "SQL", "Visualization"] },
+        { "name": "Airflow", "aliases": ["apache airflow"], "related": ["Python", "Data Pipelines", "ETL"] }
+      ]
+    },
+    {
+      "name": "Blockchain & Web3",
+      "skills": [
+        { "name": "Solidity", "aliases": ["smart contracts", "ethereum solidity"], "related": ["Ethereum", "Web3.js", "Hardhat"] },
+        { "name": "Ethereum", "aliases": ["eth", "evm"], "related": ["Solidity", "Web3.js", "MetaMask"] },
+        { "name": "Web3.js", "aliases": ["web3", "ethers.js"], "related": ["Ethereum", "JavaScript"] },
+        { "name": "Rust", "aliases": ["solana"], "related": ["Solana", "Systems Programming"] }
+      ]
+    },
+    {
+      "name": "Systems & Embedded",
+      "skills": [
+        { "name": "C++", "aliases": ["cpp", "c plus plus"], "related": ["Embedded C", "Systems Programming", "ROS"] },
+        { "name": "Embedded C", "aliases": ["embedded systems", "microcontroller"], "related": ["C++", "RTOS", "IoT"] },
+        { "name": "IoT", "aliases": ["internet of things", "embedded iot"], "related": ["C++", "Python", "MQTT"] },
+        { "name": "ROS", "aliases": ["robot operating system"], "related": ["C++", "Python", "Robotics"] }
+      ]
+    }
+  ],
+  "popularCombos": [
+    { "name": "MERN Stack", "skills": ["MongoDB", "Express", "React", "Node.js"] },
+    { "name": "Python Full Stack", "skills": ["Python", "Django", "React", "PostgreSQL"] },
+    { "name": "Java Enterprise", "skills": ["Java", "Spring Boot", "PostgreSQL", "Kafka"] },
+    { "name": "Go Cloud Native", "skills": ["Go", "Kubernetes", "PostgreSQL", "Docker"] },
+    { "name": "Data Engineering", "skills": ["Python", "Apache Spark", "Kafka", "Airflow", "SQL"] },
+    { "name": "ML Engineer", "skills": ["Python", "TensorFlow", "PyTorch", "SQL", "Cloud"] },
+    { "name": "Mobile (Android)", "skills": ["Kotlin", "Android", "Firebase", "REST APIs"] },
+    { "name": "Web3 Developer", "skills": ["Solidity", "Ethereum", "React", "TypeScript"] }
+  ]
+}

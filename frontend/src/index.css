@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply dark;
+  }
+
+  body {
+    @apply bg-surface-900 text-white font-sans antialiased;
+  }
+
+  * {
+    @apply border-white/10;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-600 rounded-full;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-800 border border-white/8 rounded-xl p-5;
+  }
+
+  .btn-primary {
+    @apply bg-brand-600 hover:bg-brand-500 text-white font-medium px-5 py-2.5 rounded-lg
+           transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-medium px-4 py-2 rounded-lg
+           transition-colors duration-150 border border-white/10;
+  }
+
+  .tag {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-mono font-medium
+           bg-brand-900/60 text-brand-400 border border-brand-700/40;
+  }
+
+  .tag-green {
+    @apply bg-emerald-900/40 text-emerald-400 border-emerald-700/40;
+  }
+
+  .tag-amber {
+    @apply bg-amber-900/40 text-amber-400 border-amber-700/40;
+  }
+
+  .tag-red {
+    @apply bg-red-900/40 text-red-400 border-red-700/40;
+  }
+
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-widest text-white/40 mb-3;
+  }
+}

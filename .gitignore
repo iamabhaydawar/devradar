@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Build output
+dist/
+build/
+frontend/dist/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Cache
+.cache/
+.parcel-cache/
+.vite/
+
+# Local HydraDB dev fallback store
+backend/hydra_local_store.json
