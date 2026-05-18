@@ -482,7 +482,7 @@ const TOTAL_STEPS = 4
 
 const STEP_LABELS = ['Who are you?', 'Your skills', 'Your goals', 'Confirm']
 
-export default function OnboardingWizard({ onComplete }) {
+export default function OnboardingWizard({ onComplete, waking = false }) {
   const [step, setStep]               = useState(1)
   const [name, setName]               = useState('')
   const [experience, setExperience]   = useState(null)
@@ -600,16 +600,38 @@ export default function OnboardingWizard({ onComplete }) {
       minHeight: '100vh', background: 'var(--bg-base)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px',
     }}>
+      {waking && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 20px',
+          background: 'var(--warning-bg)',
+          borderBottom: '1px solid var(--warning-border)',
+        }}>
+          <span style={{ fontSize: 13 }}>⏳</span>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>
+            backend warming up — <span style={{ color: 'var(--text)', fontWeight: 700 }}>give it ~30s on first load</span> (Render free tier)
+          </p>
+        </div>
+      )}
       <div style={{
         width: '100%', maxWidth: 540,
-        background: 'var(--bg-mantle)', border: '1px solid var(--border)',
+        background: 'var(--bg-mantle)', border: '1px solid rgba(255,255,255,0.10)',
         borderRadius: 18, boxShadow: 'var(--shadow-panel)',
         overflow: 'hidden',
+        marginTop: waking ? 40 : 0,
       }}>
         {/* Header */}
         <div style={{ padding: '20px 28px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px' }}>DevRadar</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: 6,
+                background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 800, color: 'var(--bg-base)', letterSpacing: '-0.5px',
+              }}>DR</div>
+              <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px' }}>devradar</span>
+            </div>
             <div style={{ textAlign: 'right' }}>
               <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Step {step} of {TOTAL_STEPS}</span>
               <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>{STEP_LABELS[step - 1]}</div>

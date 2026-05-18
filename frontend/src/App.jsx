@@ -100,7 +100,7 @@ function buildGraph({ userStack, startups, hackathons, gapReport, learnedSkills 
       mobileView: 'gaps',
       raw: { skill },
     })
-    edges.push({ from: 'user', to: id, color: { color: '#89B4FA', opacity: 0.5 }, width: 1.5 })
+    edges.push({ from: 'user', to: id, color: { color: '#d4f53c', opacity: 0.45 }, width: 1.5 })
   })
 
   gapSkills.forEach(item => {
@@ -118,7 +118,7 @@ function buildGraph({ userStack, startups, hackathons, gapReport, learnedSkills 
       mobileView: 'gaps',
       raw: item,
     })
-    edges.push({ from: 'user', to: id, dashes: true, color: { color: '#F38BA8', opacity: 0.4 }, width: 1.2 })
+    edges.push({ from: 'user', to: id, dashes: true, color: { color: '#e08080', opacity: 0.4 }, width: 1.2 })
   })
 
   startups.forEach(startup => {
@@ -141,12 +141,12 @@ function buildGraph({ userStack, startups, hackathons, gapReport, learnedSkills 
 
     knownSkills.forEach(skill => {
       if (startup.skills_required?.some(required => isSameSkill(required, skill))) {
-        edges.push({ from: `skill-known:${skill}`, to: id, color: { color: '#89B4FA', opacity: 0.4 } })
+        edges.push({ from: `skill-known:${skill}`, to: id, color: { color: '#d4f53c', opacity: 0.35 } })
       }
     })
     gapSkills.forEach(gap => {
       if (startup.skills_required?.some(required => isSameSkill(required, gap.skill))) {
-        edges.push({ from: `skill-gap:${gap.skill}`, to: id, dashes: true, color: { color: '#F38BA8', opacity: 0.35 } })
+        edges.push({ from: `skill-gap:${gap.skill}`, to: id, dashes: true, color: { color: '#e08080', opacity: 0.30 } })
       }
     })
   })
@@ -173,9 +173,9 @@ function buildGraph({ userStack, startups, hackathons, gapReport, learnedSkills 
 
     ;(hackathon.skills_relevant ?? []).forEach(skill => {
       const known = knownSkills.find(item => isSameSkill(item, skill))
-      if (known) edges.push({ from: `skill-known:${known}`, to: id, color: { color: '#CBA6F7', opacity: 0.4 } })
+      if (known) edges.push({ from: `skill-known:${known}`, to: id, color: { color: '#c4a0f4', opacity: 0.40 } })
       const gap = gapSkills.find(item => isSameSkill(item.skill, skill))
-      if (gap) edges.push({ from: `skill-gap:${gap.skill}`, to: id, color: { color: '#F38BA8', opacity: 0.35 }, dashes: true })
+      if (gap) edges.push({ from: `skill-gap:${gap.skill}`, to: id, color: { color: '#e08080', opacity: 0.30 }, dashes: true })
     })
   })
 
@@ -250,6 +250,7 @@ export default function App() {
   const [userStack, setUserStack] = useState([])
   // appState: 'checking' | 'onboarding' | 'returning' | 'app'
   const [appState, setAppState] = useState('checking')
+  const [waking, setWaking] = useState(true)
   const [startups, setStartups] = useState([])
   const [hackathons, setHackathons] = useState([])
   const [gapReport, setGapReport] = useState(null)
@@ -266,6 +267,12 @@ export default function App() {
   const [rightPanel, setRightPanel] = useState(null) // 'ingest' | 'chat' | 'roadmap' | null
   const [wikiPageCount, setWikiPageCount] = useState(0)
   const dashboardRevealedRef = useRef(false)
+
+  // Render cold-start: poll backend health until it responds
+  useEffect(() => {
+    const url = (import.meta.env.VITE_API_URL || '') + '/api/health'
+    fetch(url).then(() => setWaking(false)).catch(() => setWaking(false))
+  }, [])
 
   // On mount: check for existing user → route to correct screen
   useEffect(() => {
@@ -407,22 +414,38 @@ export default function App() {
   }
 
   if (appState === 'onboarding') {
-    return <OnboardingWizard onComplete={handleOnboardComplete} />
+    return <OnboardingWizard onComplete={handleOnboardComplete} waking={waking} />
   }
 
   if (appState === 'returning') {
-    return <ReturningScreen returnContext={returnContext} onContinue={handleReturningContinue} />
+    return <ReturningScreen returnContext={returnContext} onContinue={handleReturningContinue} waking={waking} />
   }
 
   if (loading) {
     return <LoadingScreen step={loadingStep} />
   }
 
+  const wakingBanner = waking && (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '10px 20px',
+      background: 'var(--warning-bg)',
+      borderBottom: '1px solid var(--warning-border)',
+    }}>
+      <span style={{ fontSize: 13 }}>⏳</span>
+      <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>
+        backend warming up — <span style={{ color: 'var(--text)', fontWeight: 700 }}>give it ~30 seconds</span> on first load (Render free tier)
+      </p>
+    </div>
+  )
+
   const hasRightPanel = selectedNode || rightPanel
   const graphIsEmpty = graph.nodes.length <= 1
 
   return (
     <div className="app-shell">
+      {wakingBanner}
       <div className={`graph-layout ${hasRightPanel ? 'panel-open' : ''}`}>
         <Sidebar
           graph={graph}

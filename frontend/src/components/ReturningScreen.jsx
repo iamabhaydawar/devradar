@@ -8,7 +8,7 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`
 }
 
-export default function ReturningScreen({ returnContext, onContinue }) {
+export default function ReturningScreen({ returnContext, onContinue, waking = false }) {
   const items   = returnContext?.urgentItems ?? []
   const name    = returnContext?.name ?? ''
   const stack   = returnContext?.stack ?? []
@@ -25,6 +25,20 @@ export default function ReturningScreen({ returnContext, onContinue }) {
 
   return (
     <div className="opening-screen">
+      {waking && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 20px',
+          background: 'var(--warning-bg)',
+          borderBottom: '1px solid var(--warning-border)',
+        }}>
+          <span style={{ fontSize: 13 }}>⏳</span>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>
+            backend warming up — <span style={{ color: 'var(--text)', fontWeight: 700 }}>give it ~30s on first load</span>
+          </p>
+        </div>
+      )}
       {FLOAT_CIRCLES.map((c, i) => (
         <div
           key={i}
@@ -39,7 +53,15 @@ export default function ReturningScreen({ returnContext, onContinue }) {
       ))}
 
       <div className="opening-card animate-fade-up" style={{ maxWidth: 420, textAlign: 'center' }}>
-        <div style={{ fontSize: 36, marginBottom: 12 }}>🧠</div>
+        {/* Necto Mono wordmark */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 7,
+            background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 10, fontWeight: 800, color: 'var(--bg-base)',
+          }}>DR</div>
+          <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px' }}>devradar</span>
+        </div>
 
         <h2 className="opening-heading" style={{ marginBottom: 6 }}>
           Welcome back{name ? `, ${name}` : ''}

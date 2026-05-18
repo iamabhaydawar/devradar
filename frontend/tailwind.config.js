@@ -1,44 +1,34 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
-  darkMode: 'class',
   theme: {
     extend: {
-      colors: {
-        brand: {
-          50:  '#eef2ff',
-          100: '#e0e7ff',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          900: '#1e1b4b',
-        },
-        surface: {
-          900: '#0f0f1a',
-          800: '#14141f',
-          700: '#1a1a2e',
-          600: '#20203d',
-        },
-      },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        mono: ['"JetBrains Mono"', '"Courier New"', 'monospace'],
       },
-      animation: {
-        'fade-in': 'fadeIn 0.4s ease-out',
-        'slide-up': 'slideUp 0.4s ease-out',
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      colors: {
+        // ── Necto Mono palette ──────────────────────
+        bg:      '#0f0f0f',
+        s1:      '#1c1c1c',
+        s2:      '#252525',
+        s3:      '#2e2e2e',
+        txt:     '#f0f0ee',
+        muted:   '#888880',
+        dim:     '#555550',
+        lime:    '#d4f53c',
+        'lime-bg':  '#1a2200',
+        'lime-dim': '#8aaa18',
+        warn:    '#ea9d34',
+        'warn-bg':  '#2a1500',
+        err:     '#e08080',
+        'err-bg':   '#2a0808',
+        bd:      'rgba(255,255,255,0.07)',
+        bd2:     'rgba(255,255,255,0.12)',
       },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        slideUp: {
-          '0%': { opacity: '0', transform: 'translateY(16px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
+      borderRadius: {
+        card: '16px',
+        pill: '999px',
+        btn:  '30px',
       },
     },
   },

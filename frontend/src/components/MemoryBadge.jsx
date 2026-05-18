@@ -9,28 +9,56 @@ function lastActiveText(lastActiveAt) {
 export default function MemoryBadge({ context, onDismiss }) {
   if (!context?.hasHistory) return null
 
+  const urgentItems = (context.urgentItems ?? []).slice(0, 2)
+
   return (
     <div className="memory-banner">
       <div className="memory-copy">
-        <div className="memory-label"><span aria-hidden="true">🧠</span> HydraDB recalls your journey</div>
-        <div>{context.message}</div>
+        <div className="memory-label">
+          <span className="pulse-dot" style={{ background: 'var(--accent)', width: 6, height: 6 }} />
+          HydraDB · memory active
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, marginTop: 2 }}>
+          {context.message}
+        </div>
       </div>
 
-      <div className="pill-row">
-        {(context.urgentItems ?? []).slice(0, 2).map((item, index) => (
-          <span className="urgent-pill" key={`${item.name}-${index}`}>
-            {item.type === 'hackathon' ? `${item.name} · ${item.daysLeft} days` : `${item.name} hiring`}
-          </span>
-        ))}
-      </div>
+      {urgentItems.length > 0 && (
+        <div className="pill-row" style={{ flexShrink: 0 }}>
+          {urgentItems.map((item, i) => (
+            <span
+              key={`${item.name}-${i}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '2px 10px',
+                borderRadius: 999,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                background: 'var(--warning-bg)',
+                border: '1px solid var(--warning-border)',
+                color: 'var(--warning)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              ⚡ {item.type === 'hackathon' ? `${item.name} · ${item.daysLeft}d` : `${item.name} hiring`}
+            </span>
+          ))}
+        </div>
+      )}
 
-      <button className="panel-close" type="button" onClick={onDismiss} aria-label="Dismiss memory banner">×</button>
-
-      <div className="memory-foot">
-        <span>Last active {lastActiveText(context.lastActiveAt)}</span>
-        <span className="pulse-dot" />
-        <span style={{ color: 'var(--success)' }}>Memory active</span>
-      </div>
+      <button
+        className="panel-close"
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss memory banner"
+        style={{ flexShrink: 0 }}
+      >
+        ×
+      </button>
     </div>
   )
 }
