@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import StackInput from './components/StackInput.jsx'
 import Dashboard  from './components/Dashboard.jsx'
@@ -55,8 +55,12 @@ export default function App() {
       .catch(() => {}) // non-critical
   }, [])
 
+  // Track whether dashboard has been revealed (ref avoids stale closure inside async fn)
+  const dashboardRevealedRef = useRef(false)
+
   // ── 4-step submit ─────────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async (stack, experience, goals = []) => {
+    dashboardRevealedRef.current = false
     setLoading(true)
     setView('loading')
     setLoadingStep(0)
@@ -82,6 +86,7 @@ export default function App() {
 
       // ─ Early reveal: show dashboard with first 5 startups immediately ─
       setView('dashboard')
+      dashboardRevealedRef.current = true
 
       // Step 2 — rank hackathons (background — dashboard shows skeleton)
       setLoadingStep(2)
@@ -101,12 +106,12 @@ export default function App() {
     } catch (err) {
       const kind = classifyError(err)
       setError(ERROR_MESSAGES[kind])
-      // If dashboard is already visible (partial load), keep it — just show error banner
-      if (view !== 'dashboard') setView('input')
+      // Only reset to input if the dashboard was never revealed (step 1 failed)
+      if (!dashboardRevealedRef.current) setView('input')
     } finally {
       setLoading(false)
     }
-  }, [view]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // no stale deps — uses ref for view tracking
 
   const handleReset = useCallback(() => {
     setView('input')

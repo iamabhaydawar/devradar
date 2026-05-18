@@ -58,7 +58,7 @@ function Confetti({ active }) {
 
 // ── Skill card ────────────────────────────────────────────────────────────────
 
-function SkillCard({ item, index, userId }) {
+function SkillCard({ item, index, userId, userStack = [] }) {
   const [progress,     setProgress]     = useState(0)
   const [learned,      setLearned]      = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
@@ -80,10 +80,11 @@ function SkillCard({ item, index, userId }) {
     setShowConfetti(true)
     setTimeout(() => setShowConfetti(false), 850)
 
-    // 3. POST to HydraDB (silent fail — demo must never crash)
-    if (userId) {
+    // 3. POST updated stack to HydraDB (silent fail — demo must never crash)
+    if (userId && !userStack.includes(item.skill)) {
       try {
-        await axios.post(`${API_BASE}/api/user/${userId}/stack`, { skill: item.skill })
+        const updatedStack = [...userStack, item.skill]
+        await axios.post(`${API_BASE}/api/user/${userId}/stack`, { stack: updatedStack })
       } catch { /* silently continue */ }
     }
 
@@ -315,7 +316,7 @@ export default function GapAnalysis({ gapReport, userStack, userId }) {
             Priority Skills to Learn
           </p>
           {priority_skills.map((item, i) => (
-            <SkillCard key={item.skill} item={item} index={i} userId={userId} />
+            <SkillCard key={item.skill} item={item} index={i} userId={userId} userStack={userStack} />
           ))}
         </div>
       )}
