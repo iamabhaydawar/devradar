@@ -336,11 +336,21 @@ app.post('/api/ingest', async (req, res) => {
     const inputType = detectInputType(input)
     let content = ''
 
+    if (inputType === 'screenshot') {
+      return res.status(422).json({ error: 'Screenshot analysis is not yet supported. Please copy and paste the text from the page directly.' })
+    }
+
     if (inputType === 'url') {
       try {
         content = await fetchURL(input.trim())
       } catch (fetchErr) {
         return res.status(422).json({ error: `Could not fetch URL: ${fetchErr.message}` })
+      }
+      // JS-rendered pages (React/Next SPAs) return a near-empty HTML shell
+      if (content.replace(/\s+/g, '').length < 300) {
+        return res.status(422).json({
+          error: 'This page is JavaScript-rendered and cannot be scraped directly. Please copy and paste the job description text instead.',
+        })
       }
     } else {
       content = extractText(input, inputType)
@@ -405,6 +415,9 @@ app.post('/api/ingest', async (req, res) => {
     })
   } catch (err) {
     console.error('[POST /api/ingest]', err.message)
+    if (err.isRateLimit) {
+      return res.status(429).json({ error: 'AI daily token limit reached. Add ANTHROPIC_API_KEY to .env to use Claude as fallback, or wait until tomorrow (UTC midnight) for Groq to reset.' })
+    }
     res.status(500).json({ error: err.message })
   }
 })

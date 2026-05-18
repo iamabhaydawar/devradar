@@ -37,7 +37,9 @@ async function groqChat(systemPrompt, userMessage, maxTokens = 1000) {
 
   if (!resp.ok) {
     const txt = await resp.text()
-    throw new Error(`Groq ${resp.status}: ${txt.slice(0, 200)}`)
+    const err = new Error(`Groq ${resp.status}: ${txt.slice(0, 200)}`)
+    if (resp.status === 429) err.isRateLimit = true
+    throw err
   }
 
   const data = await resp.json()
@@ -91,6 +93,7 @@ Extract career entities. Return JSON exactly:
     return safeJSON(raw, fallback)
   } catch (err) {
     console.error('[Groq] ingestStep1 error:', err.message)
+    if (err.isRateLimit) throw err  // let caller handle rate limit
     return fallback
   }
 }

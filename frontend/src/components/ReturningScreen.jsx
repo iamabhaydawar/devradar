@@ -1,3 +1,5 @@
+import DevRadarLogo from './DevRadarLogo.jsx'
+
 const FLOAT_CIRCLES = [
   { size: 260, color: 'var(--circle-1)', top: '15%', left: '5%',  dur: '12s', delay: '0s' },
   { size: 200, color: 'var(--circle-2)', top: '65%', left: '78%', dur: '15s', delay: '2s' },
@@ -8,7 +10,7 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`
 }
 
-export default function ReturningScreen({ returnContext, onContinue, waking = false }) {
+export default function ReturningScreen({ returnContext, onContinue, waking = false, onGoHome }) {
   const items   = returnContext?.urgentItems ?? []
   const name    = returnContext?.name ?? ''
   const stack   = returnContext?.stack ?? []
@@ -54,14 +56,14 @@ export default function ReturningScreen({ returnContext, onContinue, waking = fa
 
       <div className="opening-card animate-fade-up" style={{ maxWidth: 420, textAlign: 'center' }}>
         {/* Necto Mono wordmark */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 7,
-            background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 10, fontWeight: 800, color: 'var(--bg-base)',
-          }}>DR</div>
+        <button
+          type="button"
+          onClick={onGoHome}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20 }}
+        >
+          <DevRadarLogo size={28} />
           <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px' }}>devradar</span>
-        </div>
+        </button>
 
         <h2 className="opening-heading" style={{ marginBottom: 6 }}>
           Welcome back{name ? `, ${name}` : ''}

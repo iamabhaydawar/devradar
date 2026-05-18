@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import axios from 'axios'
 import { Icon } from './icons.jsx'
 
@@ -30,10 +30,12 @@ export default function IngestPanel({ userId, onPagesCreated }) {
   const [log, setLog] = useState([])
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef(null)
+  const logIdRef = useRef(0)
 
-  function addLog(type, text) {
-    setLog(prev => [...prev.slice(-19), { type, text, id: Date.now() }])
-  }
+  const addLog = useCallback((type, text) => {
+    const id = ++logIdRef.current
+    setLog(prev => [...prev.slice(-19), { type, text, id }])
+  }, [])
 
   async function handleSubmit() {
     const value = input.trim()
@@ -45,16 +47,21 @@ export default function IngestPanel({ userId, onPagesCreated }) {
     try {
       const { data } = await axios.post(`${API_BASE}/api/ingest`, { userId, input: value })
 
-      addLog('success', `✓ ${data.summary || 'Ingested successfully'}`)
+      const totalEntities = (data.entities?.companies ?? 0) + (data.entities?.skills ?? 0)
+        + (data.entities?.hackathons ?? 0) + (data.entities?.gaps ?? 0)
 
-      const parts = []
-      if (data.entities?.companies) parts.push(`${data.entities.companies} companies`)
-      if (data.entities?.skills) parts.push(`${data.entities.skills} skills`)
-      if (data.entities?.hackathons) parts.push(`${data.entities.hackathons} hackathons`)
-      if (data.entities?.gaps) parts.push(`${data.entities.gaps} gaps`)
-      if (parts.length) addLog('info', `Extracted: ${parts.join(', ')}`)
-
-      addLog('success', `${data.pages?.length ?? 0} wiki pages created`)
+      if (totalEntities === 0) {
+        addLog('warn', '⚠ No entities found. Try pasting the job description text directly instead of a URL.')
+      } else {
+        addLog('success', `✓ ${data.summary || 'Ingested successfully'}`)
+        const parts = []
+        if (data.entities?.companies) parts.push(`${data.entities.companies} companies`)
+        if (data.entities?.skills) parts.push(`${data.entities.skills} skills`)
+        if (data.entities?.hackathons) parts.push(`${data.entities.hackathons} hackathons`)
+        if (data.entities?.gaps) parts.push(`${data.entities.gaps} gaps`)
+        if (parts.length) addLog('info', `Extracted: ${parts.join(', ')}`)
+        addLog('success', `${data.pages?.length ?? 0} wiki pages created`)
+      }
 
       setInput('')
       if (onPagesCreated) onPagesCreated(data.pages ?? [])

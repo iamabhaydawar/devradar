@@ -1477,6 +1477,7 @@ a { color: var(--accent); }
 .log-info    { color: var(--text-sub); }
 .log-success { color: var(--success); }
 .log-error   { color: var(--danger); }
+.log-warn    { color: var(--warning); }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    CHAT INTERFACE

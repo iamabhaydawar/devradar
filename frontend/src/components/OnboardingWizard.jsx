@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import axios from 'axios'
+import DevRadarLogo from './DevRadarLogo.jsx'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
@@ -482,7 +483,7 @@ const TOTAL_STEPS = 4
 
 const STEP_LABELS = ['Who are you?', 'Your skills', 'Your goals', 'Confirm']
 
-export default function OnboardingWizard({ onComplete, waking = false }) {
+export default function OnboardingWizard({ onComplete, waking = false, onGoHome }) {
   const [step, setStep]               = useState(1)
   const [name, setName]               = useState('')
   const [experience, setExperience]   = useState(null)
@@ -624,14 +625,14 @@ export default function OnboardingWizard({ onComplete, waking = false }) {
         {/* Header */}
         <div style={{ padding: '20px 28px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 26, height: 26, borderRadius: 6,
-                background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 10, fontWeight: 800, color: 'var(--bg-base)', letterSpacing: '-0.5px',
-              }}>DR</div>
+            <button
+              type="button"
+              onClick={onGoHome}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <DevRadarLogo size={24} />
               <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px' }}>devradar</span>
-            </div>
+            </button>
             <div style={{ textAlign: 'right' }}>
               <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Step {step} of {TOTAL_STEPS}</span>
               <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>{STEP_LABELS[step - 1]}</div>

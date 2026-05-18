@@ -1,6 +1,7 @@
 ﻿import { useMemo, useState } from 'react'
 import { Icon } from './icons.jsx'
 import ThemeSwitcher from './ThemeSwitcher.jsx'
+import DevRadarLogo from './DevRadarLogo.jsx'
 
 function scoreClass(score) {
   if (score >= 80) return 'success'
@@ -36,6 +37,7 @@ export default function Sidebar({
   rightPanel,
   onSetRightPanel,
   wikiPageCount,
+  onGoHome,
 }) {
   const [tab, setTab] = useState('graph')
   const [query, setQuery] = useState('')
@@ -58,9 +60,15 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-top">
-        <div className="wordmark-row">
-          <p className="wordmark">DevRadar</p>
-        </div>
+        <button
+          type="button"
+          onClick={onGoHome}
+          className="wordmark-row"
+          style={{ background: 'none', border: 'none', padding: 0, cursor: onGoHome ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}
+        >
+          <DevRadarLogo size={24} />
+          <p className="wordmark" style={{ margin: 0 }}>devradar</p>
+        </button>
         <span className="event-badge">WikiThon 2026</span>
         <div className="sidebar-divider" />
       </div>
@@ -114,8 +122,18 @@ export default function Sidebar({
               onClick={() => onSelectNode(graph.nodeMap.get('user'))}
             />
             <div className="sidebar-stack" style={{ padding: '0 12px 6px 36px' }}>
-              {knownSkills.slice(0, 3).join(' Â· ')}
+              {knownSkills.slice(0, 3).join(' · ')}
             </div>
+            <Item
+              label="Roadmap Journey"
+              active={rightPanel === 'journey'}
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sidebar-icon">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              }
+              onClick={() => onSetRightPanel && onSetRightPanel(rightPanel === 'journey' ? null : 'journey')}
+            />
           </div>
 
           <div className="sidebar-section">
@@ -241,6 +259,19 @@ export default function Sidebar({
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
             </svg>
             <span className="sidebar-item-text">Journey</span>
+          </button>
+
+          <button
+            className={`sidebar-action-btn ${rightPanel === 'wiki' ? 'active' : ''}`}
+            type="button"
+            onClick={() => onSetRightPanel(rightPanel === 'wiki' ? null : 'wiki')}
+            title="Browse your wiki pages"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sidebar-icon">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            <span className="sidebar-item-text">Wiki</span>
+            {(wikiPageCount ?? 0) > 0 && <span className="count-badge blue">{wikiPageCount}</span>}
           </button>
         </div>
       )}

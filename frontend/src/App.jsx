@@ -6,6 +6,8 @@ import DetailPanel from './components/DetailPanel.jsx'
 import EmptyGraphState from './components/EmptyGraphState.jsx'
 import IngestPanel from './components/IngestPanel.jsx'
 import JourneyView from './components/JourneyView.jsx'
+import WikiPanel from './components/WikiPanel.jsx'
+import LandingPage from './components/LandingPage.jsx'
 import MemoryBadge from './components/MemoryBadge.jsx'
 import OnboardingWizard from './components/OnboardingWizard.jsx'
 import ReturningScreen from './components/ReturningScreen.jsx'
@@ -248,7 +250,7 @@ function MobileTabs({ active, onChange }) {
 export default function App() {
   const [userId, setUserId] = useState(null)
   const [userStack, setUserStack] = useState([])
-  // appState: 'checking' | 'onboarding' | 'returning' | 'app'
+  // appState: 'checking' | 'landing' | 'onboarding' | 'returning' | 'app'
   const [appState, setAppState] = useState('checking')
   const [waking, setWaking] = useState(true)
   const [startups, setStartups] = useState([])
@@ -279,7 +281,7 @@ export default function App() {
     // Support both old and new localStorage key during migration
     const savedId = localStorage.getItem('devradar_userId') || localStorage.getItem('devradar_user_id')
     if (!savedId) {
-      setAppState('onboarding')
+      setAppState('landing')
       return
     }
     // Migrate old key → new key
@@ -300,6 +302,9 @@ export default function App() {
         setAppState('app')
       })
   }, [])
+
+  // Logo click — go home from anywhere in the app
+  const handleGoHome = useCallback(() => setAppState('landing'), [])
 
   // Called by OnboardingWizard after user/init succeeds
   const handleOnboardComplete = useCallback(async ({ userId: newUserId, stack, learning_stack, experience, goals }) => {
@@ -413,12 +418,22 @@ export default function App() {
     return <LoadingScreen step={0} />
   }
 
+  if (appState === 'landing') {
+    return (
+      <LandingPage
+        isReturning={!!userId}
+        onStart={() => setAppState('onboarding')}
+        onContinue={handleReturningContinue}
+      />
+    )
+  }
+
   if (appState === 'onboarding') {
-    return <OnboardingWizard onComplete={handleOnboardComplete} waking={waking} />
+    return <OnboardingWizard onComplete={handleOnboardComplete} waking={waking} onGoHome={handleGoHome} />
   }
 
   if (appState === 'returning') {
-    return <ReturningScreen returnContext={returnContext} onContinue={handleReturningContinue} waking={waking} />
+    return <ReturningScreen returnContext={returnContext} onContinue={handleReturningContinue} waking={waking} onGoHome={handleGoHome} />
   }
 
   if (loading) {
@@ -460,6 +475,7 @@ export default function App() {
           rightPanel={rightPanel}
           onSetRightPanel={panel => { setRightPanel(panel); setSelectedNode(null) }}
           wikiPageCount={wikiPageCount}
+          onGoHome={handleGoHome}
         />
 
         {graphIsEmpty ? (
@@ -558,6 +574,19 @@ export default function App() {
             <JourneyView userId={userId} />
           </aside>
         )}
+
+        {rightPanel === 'wiki' && (
+          <aside className="detail-panel">
+            <div className="panel-header">
+              <div className="panel-title-wrap">
+                <span className="node-type-badge hackathon">Wiki</span>
+                <span className="panel-title">Wiki Browser</span>
+              </div>
+              <button className="panel-close" type="button" onClick={() => setRightPanel(null)} aria-label="Close">×</button>
+            </div>
+            <WikiPanel userId={userId} />
+          </aside>
+        )}
       </div>
 
       <MobileTabs active={activeMobileView} onChange={handleMobileTab} />
@@ -582,6 +611,7 @@ export default function App() {
               rightPanel={rightPanel}
               onSetRightPanel={panel => { setRightPanel(panel); setSelectedNode(null); setSidebarOpen(false) }}
               wikiPageCount={wikiPageCount}
+              onGoHome={handleGoHome}
             />
           </div>
         </>
