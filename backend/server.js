@@ -14,6 +14,11 @@ import {
   recordHackathonView,
   saveGapAnalysis,
   getReturnContext,
+  saveWikiPage,
+  getWikiPage,
+  getAllWikiPages,
+  appendToIngestLog,
+  getGraphData,
 } from './hydradb.js'
 
 import {
@@ -22,6 +27,23 @@ import {
   generateInterviewQuestions,
   matchHackathons,
 } from './claude.js'
+
+// ── AI provider selection: Groq (free/fast) preferred, Claude as fallback ─────
+import * as groqAI from './groq.js'
+import {
+  ingestStep1 as claudeIngestStep1,
+  ingestStep2GeneratePage as claudeIngestStep2,
+  queryWiki as claudeQueryWiki,
+  generateRoadmap as claudeRoadmap,
+} from './claude.js'
+
+const useGroq = groqAI.isAvailable()
+const ingestStep1           = useGroq ? groqAI.ingestStep1           : claudeIngestStep1
+const ingestStep2GeneratePage = useGroq ? groqAI.ingestStep2GeneratePage : claudeIngestStep2
+const queryWiki             = useGroq ? groqAI.queryWiki             : claudeQueryWiki
+const generateRoadmap       = useGroq ? groqAI.generateRoadmap       : claudeRoadmap
+
+import { detectInputType, fetchURL, extractText } from './fetcher.js'
 
 dotenv.config()
 
@@ -67,24 +89,51 @@ function basicMatchScore(userStack, startup) {
 // Health
 app.get('/api/health', (_req, res) => {
   res.json({
-    status: 'ok',
+    status:    'ok',
     timestamp: new Date().toISOString(),
-    hydradb: Boolean(process.env.HYDRADB_API_KEY),
-    claude:  Boolean(process.env.ANTHROPIC_API_KEY),
+    hydradb:   Boolean(process.env.HYDRADB_API_KEY),
+    ai:        useGroq ? 'groq' : (Boolean(process.env.ANTHROPIC_API_KEY) ? 'claude' : 'none'),
+    claude:    Boolean(process.env.ANTHROPIC_API_KEY),
+    groq:      useGroq,
   })
 })
 
 // POST /api/user/init
 app.post('/api/user/init', async (req, res) => {
   try {
-    const { stack = [], experience = '0-1 years', goals = [] } = req.body
+    const {
+      name = '',
+      stack = [],
+      learning_stack = [],
+      experience = '',
+      goals = [],
+      target_role = '',
+      target_companies = [],
+      timeline = '',
+      learning_style = '',
+    } = req.body
+
+    // Required field validation
+    if (!Array.isArray(stack) || stack.length === 0) {
+      return res.status(400).json({ error: 'At least one skill is required' })
+    }
+    if (!experience) {
+      return res.status(400).json({ error: 'Experience level is required' })
+    }
+
     const userId = uuidv4()
 
     const user = await initUser({
       userId,
+      name,
       stack,
+      learning_stack,
       experience,
       goals,
+      target_role,
+      target_companies,
+      timeline,
+      learning_style,
       created_at: new Date().toISOString(),
     })
 
@@ -125,18 +174,46 @@ app.post('/api/user/:userId/stack', async (req, res) => {
 // POST /api/analyze
 app.post('/api/analyze', async (req, res) => {
   try {
-    const { userId, stack, experience } = req.body
+    const { userId, stack: bodyStack, experience: bodyExperience } = req.body
 
     if (!userId) return res.status(400).json({ error: 'userId is required' })
-    if (!Array.isArray(stack) || stack.length === 0) {
+
+    // Load user profile from HydraDB to personalize results
+    const userProfile = await getUser(userId).catch(() => null)
+
+    // Use stored stack if body doesn't supply one
+    const stack = (Array.isArray(bodyStack) && bodyStack.length > 0)
+      ? bodyStack
+      : (userProfile?.stack ?? [])
+
+    if (stack.length === 0) {
       return res.status(400).json({ error: 'stack must be a non-empty array' })
     }
 
+    const experience = bodyExperience ?? userProfile?.experience ?? 'beginner'
+    const targetCompanies = userProfile?.target_companies ?? []
+
     // Basic match score for all startups
-    const scored = startups.map(startup => ({
+    let scored = startups.map(startup => ({
       ...startup,
       match_score: basicMatchScore(stack, startup),
-    })).sort((a, b) => b.match_score - a.match_score)
+    }))
+
+    // Personalize: boost startups that match user's target companies
+    if (targetCompanies.length > 0) {
+      scored = scored.map(startup => {
+        const nameNorm = startup.name.toLowerCase()
+        const isTarget = targetCompanies.some(tc => {
+          const tcNorm = tc.toLowerCase()
+          return nameNorm.includes(tcNorm) || tcNorm.includes(nameNorm)
+        })
+        return isTarget
+          ? { ...startup, match_score: Math.min(100, startup.match_score + 20), is_target: true }
+          : startup
+      })
+    }
+
+    scored.sort((a, b) => b.match_score - a.match_score)
 
     // Deep Claude analysis for top 5
     const top5 = scored.slice(0, 5)
@@ -152,7 +229,6 @@ app.post('/api/analyze', async (req, res) => {
     }))
 
     // Merge enriched top 5 back, keep rest as-is
-    const top5Ids = new Set(top5.map(s => s.id))
     const enrichedMap = new Map(enrichedTop5.map(s => [s.id, s]))
     const allStartups = scored.map(s => enrichedMap.get(s.id) ?? s)
 
@@ -241,6 +317,189 @@ app.get('/api/return-context/:userId', async (req, res) => {
 // GET /api/skills
 app.get('/api/skills', (_req, res) => {
   res.json(skills)
+})
+
+// ── Wiki ingest pipeline ──────────────────────────────────────────────────────
+
+// POST /api/ingest
+// Body: { userId, input, inputType? }
+// Runs 2-step LLM pipeline: extract entities → generate wiki pages
+app.post('/api/ingest', async (req, res) => {
+  try {
+    const { userId, input } = req.body
+    if (!userId) return res.status(400).json({ error: 'userId is required' })
+    if (!input || typeof input !== 'string' || !input.trim()) {
+      return res.status(400).json({ error: 'input is required' })
+    }
+
+    const inputType = detectInputType(input)
+    let content = ''
+
+    if (inputType === 'url') {
+      try {
+        content = await fetchURL(input.trim())
+      } catch (fetchErr) {
+        return res.status(422).json({ error: `Could not fetch URL: ${fetchErr.message}` })
+      }
+    } else {
+      content = extractText(input, inputType)
+    }
+
+    // Get user's current stack for context
+    const user = await getUser(userId)
+    const userStack = user?.stack ?? []
+
+    // Step 1 — extract entities
+    console.log(`[/api/ingest] Step 1: extracting entities for ${userId}`)
+    const entities = await ingestStep1(content, userStack)
+
+    // Step 2 — generate wiki pages for each entity (in parallel, capped at 6)
+    const pageJobs = []
+
+    for (const company of (entities.companies ?? []).slice(0, 3)) {
+      pageJobs.push({ type: 'company', entity: company, name: company.name?.toLowerCase().replace(/\s+/g, '-') })
+    }
+    for (const skill of (entities.skills ?? []).slice(0, 2)) {
+      pageJobs.push({ type: 'skill', entity: skill, name: skill.name?.toLowerCase().replace(/\s+/g, '-') })
+    }
+    for (const hackathon of (entities.hackathons ?? []).slice(0, 1)) {
+      pageJobs.push({ type: 'hackathon', entity: hackathon, name: hackathon.name?.toLowerCase().replace(/\s+/g, '-') })
+    }
+    for (const gap of (entities.gaps ?? []).slice(0, 2)) {
+      pageJobs.push({ type: 'gap', entity: gap, name: gap.skill?.toLowerCase().replace(/\s+/g, '-') })
+    }
+
+    console.log(`[/api/ingest] Step 2: generating ${pageJobs.length} wiki pages`)
+
+    const results = await Promise.allSettled(
+      pageJobs.map(async job => {
+        const markdown = await ingestStep2GeneratePage(job.type, job.entity, userStack, content)
+        await saveWikiPage(userId, job.type, job.name, markdown, { source: inputType === 'url' ? input.trim() : inputType })
+        return { type: job.type, name: job.name, pageKey: `${job.type}/${job.name}` }
+      })
+    )
+
+    const saved = results
+      .filter(r => r.status === 'fulfilled')
+      .map(r => r.value)
+
+    // Log ingest event
+    await appendToIngestLog(userId, {
+      inputType,
+      source: inputType === 'url' ? input.trim().slice(0, 200) : `${content.slice(0, 60)}…`,
+      pagesCreated: saved.length,
+      summary: entities.summary ?? '',
+    })
+
+    res.json({
+      ok: true,
+      summary: entities.summary ?? '',
+      entities: {
+        companies: entities.companies?.length ?? 0,
+        skills: entities.skills?.length ?? 0,
+        hackathons: entities.hackathons?.length ?? 0,
+        gaps: entities.gaps?.length ?? 0,
+      },
+      pages: saved,
+    })
+  } catch (err) {
+    console.error('[POST /api/ingest]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/wiki-pages/:userId
+// Returns all wiki pages for a user
+app.get('/api/wiki-pages/:userId', async (req, res) => {
+  try {
+    const pages = await getAllWikiPages(req.params.userId)
+    res.json({ pages, total: pages.length })
+  } catch (err) {
+    console.error('[GET /api/wiki-pages/:userId]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/wiki/:userId/:pageType/:pageName
+// Returns a single wiki page
+app.get('/api/wiki/:userId/:pageType/:pageName', async (req, res) => {
+  try {
+    const { userId, pageType, pageName } = req.params
+    const page = await getWikiPage(userId, pageType, pageName)
+    if (!page) return res.status(404).json({ error: 'Page not found' })
+    res.json(page)
+  } catch (err) {
+    console.error('[GET /api/wiki/:userId/:pageType/:pageName]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /api/chat
+// Body: { userId, question, userStack? }
+// Answers a question using the user's wiki as context
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { userId, question, userStack: bodyStack } = req.body
+    if (!userId) return res.status(400).json({ error: 'userId is required' })
+    if (!question?.trim()) return res.status(400).json({ error: 'question is required' })
+
+    const user = await getUser(userId)
+    const userStack = bodyStack ?? user?.stack ?? []
+    const wikiPages = await getAllWikiPages(userId)
+
+    const result = await queryWiki(question, wikiPages, userStack)
+    res.json(result)
+  } catch (err) {
+    console.error('[POST /api/chat]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/roadmap/:userId
+// Generates a personalized week-by-week learning roadmap
+app.get('/api/roadmap/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params
+    const user = await getUser(userId)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const userStack = user.stack ?? []
+    const lastGapAnalysis = user.gap_analyses?.at(-1)
+    const gapSkills = lastGapAnalysis?.priority_skills ?? []
+    const goals = user.goals ?? []
+    const wikiPages = await getAllWikiPages(userId)
+
+    const roadmap = await generateRoadmap(userStack, gapSkills, goals, wikiPages)
+    res.json(roadmap)
+  } catch (err) {
+    console.error('[GET /api/roadmap/:userId]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/journey/:userId
+// Returns the user's career journey log
+app.get('/api/journey/:userId', async (req, res) => {
+  try {
+    const user = await getUser(req.params.userId)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    res.json({ journey: user.journey ?? [] })
+  } catch (err) {
+    console.error('[GET /api/journey/:userId]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/graph-data/:userId
+// Returns wiki-derived graph data (supplements the existing client-side graph)
+app.get('/api/graph-data/:userId', async (req, res) => {
+  try {
+    const data = await getGraphData(req.params.userId)
+    res.json(data)
+  } catch (err) {
+    console.error('[GET /api/graph-data/:userId]', err.message)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 // ── Error middleware ──────────────────────────────────────────────────────────

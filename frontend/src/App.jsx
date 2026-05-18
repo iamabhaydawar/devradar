@@ -1,277 +1,568 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import StackInput from './components/StackInput.jsx'
-import Dashboard  from './components/Dashboard.jsx'
+import CareerGraph from './components/CareerGraph.jsx'
+import ChatInterface from './components/ChatInterface.jsx'
+import DetailPanel from './components/DetailPanel.jsx'
+import EmptyGraphState from './components/EmptyGraphState.jsx'
+import IngestPanel from './components/IngestPanel.jsx'
+import JourneyView from './components/JourneyView.jsx'
+import MemoryBadge from './components/MemoryBadge.jsx'
+import OnboardingWizard from './components/OnboardingWizard.jsx'
+import ReturningScreen from './components/ReturningScreen.jsx'
+import RoadmapView from './components/RoadmapView.jsx'
+import Sidebar from './components/Sidebar.jsx'
+import { Icon } from './components/icons.jsx'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
-const TEAL     = '#00C4B4'
 
-// ── Loading step messages ─────────────────────────────────────────────────────
 const LOADING_STEPS = [
-  'HydraDB is recalling your journey...',
-  'Matching you with Indian startups...',
-  'Finding your next hackathon...',
-  'Asking Claude about your stack...',
+  'HydraDB is preparing your profile...',
+  'Matching your stack to startups...',
+  'Connecting hackathons to your skills...',
+  'Generating skill gap nodes...',
 ]
 
-// ── Error classification ──────────────────────────────────────────────────────
 function classifyError(err) {
-  if (!err.response)                          return 'network'
+  if (!err.response) return 'network'
   const status = err.response.status
-  const msg    = (err.response.data?.error ?? '').toLowerCase()
+  const msg = (err.response.data?.error ?? '').toLowerCase()
   if (status === 408 || err.code === 'ECONNABORTED' || msg.includes('timeout')) return 'timeout'
-  if (msg.includes('hydra') || msg.includes('memory') || status === 503)         return 'hydradb'
+  if (msg.includes('hydra') || msg.includes('memory') || status === 503) return 'hydradb'
   return 'generic'
 }
 
 const ERROR_MESSAGES = {
-  network:  'Could not connect. Using cached data.',
-  timeout:  'AI took too long. Showing quick analysis.',
-  hydradb:  'Memory temporarily unavailable. Running in local mode.',
-  generic:  'Something went wrong. Please try again.',
+  network: 'Could not connect to the backend.',
+  timeout: 'AI took too long. Showing the graph with available data.',
+  hydradb: 'Memory is temporarily unavailable. Running in local mode.',
+  generic: 'Something went wrong. Please try again.',
 }
 
-// ── App ───────────────────────────────────────────────────────────────────────
+function norm(value) {
+  return String(value ?? '').toLowerCase().trim()
+}
+
+function isSameSkill(a, b) {
+  const left = norm(a)
+  const right = norm(b)
+  return left === right || left.includes(right) || right.includes(left)
+}
+
+function cleanId(value) {
+  return String(value).replace(/[^a-zA-Z0-9_-]/g, '-')
+}
+
+function buildGraph({ userStack, startups, hackathons, gapReport, learnedSkills }) {
+  const knownSkills = Array.from(new Set([...(userStack.length ? userStack : ['React', 'Node.js', 'Python']), ...learnedSkills]))
+  const knownSet = knownSkills.map(norm)
+  const rawGaps = gapReport?.priority_skills?.length
+    ? gapReport.priority_skills
+    : inferGaps(startups, knownSkills)
+  const gapSkills = rawGaps.filter(item => !knownSet.some(skill => isSameSkill(skill, item.skill)))
+
+  const nodes = []
+  const edges = []
+  const nodeDetails = []
+  const nodeMap = new Map()
+
+  function addNode(node, detail) {
+    nodes.push(node)
+    nodeDetails.push(detail)
+    nodeMap.set(node.id, detail)
+  }
+
+  addNode({
+    id: 'user',
+    label: 'You',
+    group: 'user',
+    title: 'Your DevRadar career profile',
+  }, {
+    id: 'user',
+    type: 'user',
+    label: 'Your Profile',
+    icon: 'user',
+    mobileView: 'dashboard',
+    raw: { stack: knownSkills },
+  })
+
+  knownSkills.forEach(skill => {
+    const id = `skill-known:${skill}`
+    addNode({
+      id,
+      label: skill,
+      group: 'skill_known',
+      title: `${skill}<br>Known skill in your stack`,
+    }, {
+      id,
+      type: 'skill_known',
+      label: skill,
+      icon: 'skill',
+      mobileView: 'gaps',
+      raw: { skill },
+    })
+    edges.push({ from: 'user', to: id, color: { color: '#89B4FA', opacity: 0.5 }, width: 1.5 })
+  })
+
+  gapSkills.forEach(item => {
+    const id = `skill-gap:${item.skill}`
+    addNode({
+      id,
+      label: item.skill,
+      group: 'skill_gap',
+      title: `${item.skill}<br>Skill gap to close`,
+    }, {
+      id,
+      type: 'skill_gap',
+      label: item.skill,
+      icon: 'gap',
+      mobileView: 'gaps',
+      raw: item,
+    })
+    edges.push({ from: 'user', to: id, dashes: true, color: { color: '#F38BA8', opacity: 0.4 }, width: 1.2 })
+  })
+
+  startups.forEach(startup => {
+    const score = startup.claude_analysis?.match_percentage ?? startup.match_score ?? 0
+    const id = `startup:${startup.id}`
+    addNode({
+      id,
+      label: startup.name,
+      group: 'startup',
+      title: `${startup.name}<br>${score}% match · ${startup.type}`,
+    }, {
+      id,
+      type: 'startup',
+      label: startup.name,
+      icon: 'startup',
+      score,
+      mobileView: 'startups',
+      raw: startup,
+    })
+
+    knownSkills.forEach(skill => {
+      if (startup.skills_required?.some(required => isSameSkill(required, skill))) {
+        edges.push({ from: `skill-known:${skill}`, to: id, color: { color: '#89B4FA', opacity: 0.4 } })
+      }
+    })
+    gapSkills.forEach(gap => {
+      if (startup.skills_required?.some(required => isSameSkill(required, gap.skill))) {
+        edges.push({ from: `skill-gap:${gap.skill}`, to: id, dashes: true, color: { color: '#F38BA8', opacity: 0.35 } })
+      }
+    })
+  })
+
+  hackathons.forEach(hackathon => {
+    const id = `hackathon:${hackathon.id}`
+    addNode({
+      id,
+      label: hackathon.name,
+      group: 'hackathon',
+      title: `${hackathon.name}<br>${hackathon.match_score ?? 0}% match · ${hackathon.platform}`,
+    }, {
+      id,
+      type: 'hackathon',
+      label: hackathon.name,
+      icon: 'hackathon',
+      score: hackathon.match_score ?? 0,
+      mobileView: 'hackathons',
+      raw: {
+        ...hackathon,
+        matchedSkills: (hackathon.skills_relevant ?? []).filter(skill => knownSkills.some(known => isSameSkill(known, skill))),
+      },
+    })
+
+    ;(hackathon.skills_relevant ?? []).forEach(skill => {
+      const known = knownSkills.find(item => isSameSkill(item, skill))
+      if (known) edges.push({ from: `skill-known:${known}`, to: id, color: { color: '#CBA6F7', opacity: 0.4 } })
+      const gap = gapSkills.find(item => isSameSkill(item.skill, skill))
+      if (gap) edges.push({ from: `skill-gap:${gap.skill}`, to: id, color: { color: '#F38BA8', opacity: 0.35 }, dashes: true })
+    })
+  })
+
+  return { nodes, edges: dedupeEdges(edges), nodeDetails, nodeMap, gapSkills, knownSkills }
+}
+
+function dedupeEdges(edges) {
+  const seen = new Set()
+  return edges.filter(edge => {
+    const key = `${edge.from}->${edge.to}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).map((edge, index) => ({ id: `edge:${index}:${cleanId(edge.from)}:${cleanId(edge.to)}`, ...edge }))
+}
+
+function inferGaps(startups, stack) {
+  const counts = new Map()
+  startups.slice(0, 8).forEach(startup => {
+    ;(startup.skills_required ?? []).forEach(skill => {
+      if (stack.some(known => isSameSkill(known, skill))) return
+      counts.set(skill, (counts.get(skill) ?? 0) + 1)
+    })
+  })
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([skill, count]) => ({
+      skill,
+      why: `Required by ${count} matching companies`,
+      time_weeks: count > 2 ? 2 : 1,
+      difficulty: 'Beginner friendly',
+      resource: `https://www.google.com/search?q=learn+${encodeURIComponent(skill)}`,
+      salary_impact: '+10-15%',
+    }))
+}
+
+function LoadingScreen({ step }) {
+  return (
+    <main className="loading-screen">
+      <section className="loading-card">
+        <div className="spinner" />
+        <h1 className="stack-logo" style={{ marginBottom: 8 }}>Generating your graph</h1>
+        <p className="caption">{LOADING_STEPS[step] ?? LOADING_STEPS[0]}</p>
+      </section>
+    </main>
+  )
+}
+
+function MobileTabs({ active, onChange }) {
+  const tabs = [
+    ['dashboard', 'Graph', 'graph'],
+    ['startups', 'Startups', 'startup'],
+    ['hackathons', 'Events', 'hackathon'],
+    ['gaps', 'Gaps', 'gap'],
+    ['ingest', 'Ingest', 'menu'],
+  ]
+  return (
+    <nav className="mobile-tabs" aria-label="Mobile navigation">
+      {tabs.map(([id, label, icon]) => (
+        <button className={`mobile-tab ${active === id ? 'active' : ''}`} key={id} type="button" onClick={() => onChange(id)}>
+          <Icon name={icon} />
+          <span>{label}</span>
+        </button>
+      ))}
+    </nav>
+  )
+}
 
 export default function App() {
-  const [userId,        setUserId]        = useState(null)
-  const [userStack,     setUserStack]     = useState([])
-  const [view,          setView]          = useState('input')   // 'input'|'loading'|'dashboard'
-  const [startups,      setStartups]      = useState([])
-  const [hackathons,    setHackathons]    = useState([])
-  const [gapReport,     setGapReport]     = useState(null)
+  const [userId, setUserId] = useState(null)
+  const [userStack, setUserStack] = useState([])
+  // appState: 'checking' | 'onboarding' | 'returning' | 'app'
+  const [appState, setAppState] = useState('checking')
+  const [startups, setStartups] = useState([])
+  const [hackathons, setHackathons] = useState([])
+  const [gapReport, setGapReport] = useState(null)
   const [returnContext, setReturnContext] = useState(null)
-  const [loading,       setLoading]       = useState(false)
-  const [loadingStep,   setLoadingStep]   = useState(0)
-  const [error,         setError]         = useState(null)
-
-  // ── Check returning user on mount ────────────────────────────────────────────
-  useEffect(() => {
-    const savedId = localStorage.getItem('devradar_user_id')
-    if (!savedId) return
-    setUserId(savedId)
-    axios.get(`${API_BASE}/api/return-context/${savedId}`)
-      .then(({ data }) => { if (data.hasHistory) setReturnContext(data) })
-      .catch(() => {}) // non-critical
-  }, [])
-
-  // Track whether dashboard has been revealed (ref avoids stale closure inside async fn)
+  const [memoryVisible, setMemoryVisible] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [loadingStep, setLoadingStep] = useState(0)
+  const [error, setError] = useState(null)
+  const [selectedNode, setSelectedNode] = useState(null)
+  const [graphFilter, setGraphFilter] = useState('all')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeMobileView, setActiveMobileView] = useState('dashboard')
+  const [learnedSkills, setLearnedSkills] = useState([])
+  const [rightPanel, setRightPanel] = useState(null) // 'ingest' | 'chat' | 'roadmap' | null
+  const [wikiPageCount, setWikiPageCount] = useState(0)
   const dashboardRevealedRef = useRef(false)
 
-  // ── 4-step submit ─────────────────────────────────────────────────────────────
-  const handleSubmit = useCallback(async (stack, experience, goals = []) => {
+  // On mount: check for existing user → route to correct screen
+  useEffect(() => {
+    // Support both old and new localStorage key during migration
+    const savedId = localStorage.getItem('devradar_userId') || localStorage.getItem('devradar_user_id')
+    if (!savedId) {
+      setAppState('onboarding')
+      return
+    }
+    // Migrate old key → new key
+    if (!localStorage.getItem('devradar_userId')) {
+      localStorage.setItem('devradar_userId', savedId)
+    }
+    setUserId(savedId)
+    axios.get(`${API_BASE}/api/return-context/${savedId}`)
+      .then(({ data }) => {
+        if (data.hasHistory) {
+          setReturnContext(data)
+          setAppState('returning')
+        } else {
+          setAppState('app')
+        }
+      })
+      .catch(() => {
+        setAppState('app')
+      })
+  }, [])
+
+  // Called by OnboardingWizard after user/init succeeds
+  const handleOnboardComplete = useCallback(async ({ userId: newUserId, stack, learning_stack, experience, goals }) => {
+    setUserId(newUserId)
+    setUserStack(stack)
+    setAppState('app')
+    await loadGraphData(newUserId, stack, experience)
+  }, [])
+
+  // Called by ReturningScreen when user clicks Continue
+  const handleReturningContinue = useCallback(async () => {
+    setAppState('app')
+    try {
+      const { data } = await axios.get(`${API_BASE}/api/user/${userId}`)
+      const stack = data.stack ?? []
+      setUserStack(stack)
+      if (stack.length > 0) {
+        await loadGraphData(userId, stack, data.experience ?? 'beginner')
+      }
+    } catch {
+      // Just show app with empty graph — user can ingest data
+    }
+  }, [userId])
+
+  async function loadGraphData(uid, stack, experience) {
     dashboardRevealedRef.current = false
     setLoading(true)
-    setView('loading')
     setLoadingStep(0)
     setError(null)
+    setSelectedNode(null)
+    setMemoryVisible(true)
 
     try {
-      // Step 0 — init user in HydraDB
-      const { data: initData } = await axios.post(`${API_BASE}/api/user/init`, {
-        stack, experience, goals,
-      })
-      const newUserId = initData.userId
-      setUserId(newUserId)
-      localStorage.setItem('devradar_user_id', newUserId)
-
-      // Step 1 — match startups + Claude deep-analyzes top 5
       setLoadingStep(1)
-      const { data: analyzeData } = await axios.post(`${API_BASE}/api/analyze`, {
-        userId: newUserId, stack, experience,
-      })
+      const { data: analyzeData } = await axios.post(`${API_BASE}/api/analyze`, { userId: uid, stack, experience })
       const fetchedStartups = analyzeData.startups ?? []
       setStartups(fetchedStartups)
-      setUserStack(stack)
-
-      // ─ Early reveal: show dashboard with first 5 startups immediately ─
-      setView('dashboard')
       dashboardRevealedRef.current = true
 
-      // Step 2 — rank hackathons (background — dashboard shows skeleton)
       setLoadingStep(2)
-      const { data: hackData } = await axios.get(
-        `${API_BASE}/api/hackathons/${newUserId}?stack=${encodeURIComponent(stack.join(','))}`
-      )
+      const { data: hackData } = await axios.get(`${API_BASE}/api/hackathons/${uid}?stack=${encodeURIComponent(stack.join(','))}`)
       setHackathons(hackData.ranked_hackathons ?? [])
 
-      // Step 3 — Claude gap report (background — dashboard shows skeleton)
       setLoadingStep(3)
       const topCompanies = fetchedStartups.slice(0, 5).map(s => s.name)
-      const { data: gapData } = await axios.post(`${API_BASE}/api/gaps`, {
-        userId: newUserId, stack, targetCompanies: topCompanies,
-      })
+      const { data: gapData } = await axios.post(`${API_BASE}/api/gaps`, { userId: uid, stack, targetCompanies: topCompanies })
       setGapReport(gapData)
-
     } catch (err) {
       const kind = classifyError(err)
       setError(ERROR_MESSAGES[kind])
-      // Only reset to input if the dashboard was never revealed (step 1 failed)
-      if (!dashboardRevealedRef.current) setView('input')
+      if (!dashboardRevealedRef.current) setAppState('onboarding')
     } finally {
       setLoading(false)
     }
-  }, []) // no stale deps — uses ref for view tracking
+  }
 
-  const handleReset = useCallback(() => {
-    setView('input')
-    setStartups([])
-    setHackathons([])
-    setGapReport(null)
-    setError(null)
-    setLoadingStep(0)
+  // Legacy submit handler (unused — kept as fallback)
+  const handleSubmit = useCallback(async (stack, experience, goals = []) => {
+    try {
+      const { data: initData } = await axios.post(`${API_BASE}/api/user/init`, { stack, experience, goals })
+      const newUserId = initData.userId
+      setUserId(newUserId)
+      setUserStack(stack)
+      localStorage.setItem('devradar_userId', newUserId)
+      setAppState('app')
+      await loadGraphData(newUserId, stack, experience)
+    } catch (err) {
+      setError(ERROR_MESSAGES[classifyError(err)])
+    }
   }, [])
 
+  const graph = useMemo(() => buildGraph({
+    userStack,
+    startups,
+    hackathons,
+    gapReport,
+    learnedSkills,
+  }), [userStack, startups, hackathons, gapReport, learnedSkills])
+
+  const selectNode = useCallback(node => {
+    setSelectedNode(node)
+    if (node?.mobileView) setActiveMobileView(node.mobileView)
+  }, [])
+
+  const focusNode = useCallback(id => {
+    const node = graph.nodeMap.get(id)
+    if (node) selectNode(node)
+  }, [graph.nodeMap, selectNode])
+
+  function handleMobileTab(id) {
+    setActiveMobileView(id)
+    if (id === 'dashboard' || id === 'journey') {
+      setGraphFilter('all')
+      selectNode(graph.nodeMap.get('user'))
+    } else if (id === 'startups') {
+      setGraphFilter('startups')
+      const first = startups[0]
+      if (first) focusNode(`startup:${first.id}`)
+    } else if (id === 'hackathons') {
+      setGraphFilter('hackathons')
+      const first = hackathons[0]
+      if (first) focusNode(`hackathon:${first.id}`)
+    } else if (id === 'gaps') {
+      setGraphFilter('skills')
+      const first = graph.gapSkills[0]
+      if (first) focusNode(`skill-gap:${first.skill}`)
+    }
+  }
+
+  if (appState === 'checking') {
+    return <LoadingScreen step={0} />
+  }
+
+  if (appState === 'onboarding') {
+    return <OnboardingWizard onComplete={handleOnboardComplete} />
+  }
+
+  if (appState === 'returning') {
+    return <ReturningScreen returnContext={returnContext} onContinue={handleReturningContinue} />
+  }
+
+  if (loading) {
+    return <LoadingScreen step={loadingStep} />
+  }
+
+  const hasRightPanel = selectedNode || rightPanel
+  const graphIsEmpty = graph.nodes.length <= 1
+
   return (
-    <div style={{ backgroundColor: '#0A0F1E', minHeight: '100vh' }}>
+    <div className="app-shell">
+      <div className={`graph-layout ${hasRightPanel ? 'panel-open' : ''}`}>
+        <Sidebar
+          graph={graph}
+          selectedNode={selectedNode}
+          onSelectNode={selectNode}
+          userStack={graph.knownSkills}
+          startups={startups}
+          hackathons={hackathons}
+          gapSkills={graph.gapSkills}
+          activeMobileView={activeMobileView}
+          setActiveMobileView={setActiveMobileView}
+          rightPanel={rightPanel}
+          onSetRightPanel={panel => { setRightPanel(panel); setSelectedNode(null) }}
+          wikiPageCount={wikiPageCount}
+        />
 
-      {/* ── Header ── */}
-      <header style={{
-        backgroundColor: 'rgba(10,15,30,0.9)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        position: 'sticky', top: 0, zIndex: 30,
-      }}>
-        <div style={{
-          maxWidth: '1280px', margin: '0 auto', padding: '0 20px',
-          height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <button
-            onClick={handleReset}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              background: 'none', border: 'none', cursor: 'pointer', padding: '0',
-              minHeight: '44px',
-            }}
-          >
-            <div style={{
-              width: '28px', height: '28px', borderRadius: '8px',
-              backgroundColor: TEAL,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ color: '#0A0F1E', fontWeight: 900, fontSize: '13px' }}>⬡</span>
-            </div>
-            <span style={{
-              color: 'white', fontWeight: 700, fontSize: '15px', letterSpacing: '-0.01em',
-            }}>
-              DevRadar
-            </span>
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {userId && (
-              <span style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                color: TEAL, fontSize: '12px', fontFamily: 'monospace',
-              }}
-                title="HydraDB stores your career journey persistently. Every visit builds on the last."
-              >
-                <span style={{
-                  width: '7px', height: '7px', borderRadius: '50%', backgroundColor: TEAL,
-                  display: 'inline-block', animation: 'hdr-ping 1.6s ease-in-out infinite',
-                }} />
-                HydraDB active
-              </span>
-            )}
-            <span style={{
-              color: 'rgba(255,255,255,0.2)', fontSize: '12px', fontFamily: 'monospace',
-            }}>
-              WikiThon 2026
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <style>{`
-        @keyframes hdr-ping {
-          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 ${TEAL}60; }
-          50%       { opacity: 0.5; box-shadow: 0 0 0 5px ${TEAL}00; }
-        }
-        @keyframes app-spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-
-      {/* ── Error banner (shown over dashboard on partial failure) ── */}
-      {error && view === 'dashboard' && (
-        <div style={{
-          backgroundColor: 'rgba(248,113,113,0.1)',
-          borderBottom: '1px solid rgba(248,113,113,0.3)',
-          padding: '10px 20px', textAlign: 'center',
-          color: '#f87171', fontSize: '13px', fontFamily: 'monospace',
-        }}>
-          {error}
-        </div>
-      )}
-
-      {/* ── Main ── */}
-      <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 20px' }}>
-
-        {view === 'input' && (
-          <StackInput
-            onSubmit={handleSubmit}
-            returnContext={returnContext}
-            error={error}
+        {graphIsEmpty ? (
+          <EmptyGraphState
+            onIngest={() => { setRightPanel('ingest'); setSelectedNode(null) }}
+            onStartups={() => setActiveMobileView('startups')}
+            onHackathons={() => setActiveMobileView('hackathons')}
           />
+        ) : (
+          <CareerGraph
+            graph={graph}
+            selectedNode={selectedNode}
+            onSelectNode={node => { selectNode(node); setRightPanel(null) }}
+            filter={graphFilter}
+            setFilter={setGraphFilter}
+            onOpenSidebar={() => setSidebarOpen(true)}
+          >
+            {memoryVisible && <MemoryBadge context={returnContext} onDismiss={() => setMemoryVisible(false)} />}
+          </CareerGraph>
         )}
 
-        {view === 'loading' && (
-          <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', minHeight: '68vh', gap: '24px',
-          }}>
-            {/* Spinner */}
-            <div style={{ position: 'relative', width: '56px', height: '56px' }}>
-              <div style={{
-                position: 'absolute', inset: 0, borderRadius: '50%',
-                border: '2px solid rgba(255,255,255,0.06)',
-              }} />
-              <div style={{
-                position: 'absolute', inset: 0, borderRadius: '50%',
-                border: '2px solid transparent', borderTopColor: TEAL,
-                animation: 'app-spin 0.75s linear infinite',
-              }} />
-            </div>
-
-            {/* Step text */}
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ color: 'white', fontSize: '14px', fontWeight: 600, margin: '0 0 14px' }}>
-                {LOADING_STEPS[loadingStep]}
-              </p>
-              {/* Progress dots */}
-              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                {LOADING_STEPS.map((_, i) => (
-                  <div key={i} style={{
-                    height: '3px', borderRadius: '2px',
-                    width: i <= loadingStep ? '28px' : '10px',
-                    backgroundColor: i <= loadingStep ? TEAL : 'rgba(255,255,255,0.12)',
-                    transition: 'all 0.4s ease',
-                  }} />
-                ))}
-              </div>
-            </div>
-
-            <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '12px', fontFamily: 'monospace' }}>
-              Powered by Claude + HydraDB
-            </p>
-          </div>
-        )}
-
-        {view === 'dashboard' && (
-          <Dashboard
-            userId={userId}
-            userStack={userStack}
+        {/* Right panel — either node detail or a feature panel */}
+        {selectedNode && !rightPanel && (
+          <DetailPanel
+            node={selectedNode}
+            onClose={() => setSelectedNode(null)}
             startups={startups}
             hackathons={hackathons}
-            gapReport={gapReport}
-            returnContext={returnContext}
-            onReset={handleReset}
-            loading={loading}
-            loadingStep={loadingStep}
+            userStack={graph.knownSkills}
+            userId={userId}
+            gapSkills={graph.gapSkills}
+            onFocusNode={focusNode}
+            onLearned={skill => {
+              setLearnedSkills(prev => prev.includes(skill) ? prev : [...prev, skill])
+              setSelectedNode(null)
+            }}
+            onSave={() => window.dispatchEvent(new CustomEvent('devradar:memory-saved'))}
           />
         )}
 
-      </main>
+        {rightPanel === 'ingest' && (
+          <aside className="detail-panel">
+            <div className="panel-header">
+              <div className="panel-title-wrap">
+                <span className="node-type-badge skill_known">Wiki</span>
+                <span className="panel-title">Feed your wiki</span>
+              </div>
+              <button className="panel-close" type="button" onClick={() => setRightPanel(null)} aria-label="Close">×</button>
+            </div>
+            <IngestPanel
+              userId={userId}
+              onPagesCreated={pages => setWikiPageCount(prev => prev + pages.length)}
+            />
+          </aside>
+        )}
+
+        {rightPanel === 'chat' && (
+          <aside className="detail-panel">
+            <div className="panel-header">
+              <div className="panel-title-wrap">
+                <span className="node-type-badge hackathon">AI</span>
+                <span className="panel-title">Career Chat</span>
+              </div>
+              <button className="panel-close" type="button" onClick={() => setRightPanel(null)} aria-label="Close">×</button>
+            </div>
+            <ChatInterface
+              userId={userId}
+              userStack={graph.knownSkills}
+              wikiPageCount={wikiPageCount}
+            />
+          </aside>
+        )}
+
+        {rightPanel === 'roadmap' && (
+          <aside className="detail-panel">
+            <div className="panel-header">
+              <div className="panel-title-wrap">
+                <span className="node-type-badge startup">Plan</span>
+                <span className="panel-title">Learning Roadmap</span>
+              </div>
+              <button className="panel-close" type="button" onClick={() => setRightPanel(null)} aria-label="Close">×</button>
+            </div>
+            <RoadmapView userId={userId} />
+          </aside>
+        )}
+
+        {rightPanel === 'journey' && (
+          <aside className="detail-panel">
+            <div className="panel-header">
+              <div className="panel-title-wrap">
+                <span className="node-type-badge skill_known">Log</span>
+                <span className="panel-title">My Journey</span>
+              </div>
+              <button className="panel-close" type="button" onClick={() => setRightPanel(null)} aria-label="Close">×</button>
+            </div>
+            <JourneyView userId={userId} />
+          </aside>
+        )}
+      </div>
+
+      <MobileTabs active={activeMobileView} onChange={handleMobileTab} />
+
+      {sidebarOpen && (
+        <>
+          <button className="overlay-scrim" type="button" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" />
+          <div className="sidebar-overlay">
+            <Sidebar
+              graph={graph}
+              selectedNode={selectedNode}
+              onSelectNode={node => {
+                selectNode(node)
+                setSidebarOpen(false)
+              }}
+              userStack={graph.knownSkills}
+              startups={startups}
+              hackathons={hackathons}
+              gapSkills={graph.gapSkills}
+              activeMobileView={activeMobileView}
+              setActiveMobileView={setActiveMobileView}
+              rightPanel={rightPanel}
+              onSetRightPanel={panel => { setRightPanel(panel); setSelectedNode(null); setSidebarOpen(false) }}
+              wikiPageCount={wikiPageCount}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

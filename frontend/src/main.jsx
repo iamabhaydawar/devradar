@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
+// ── Apply saved theme before first paint (prevents flash) ────────────────────
+const savedTheme = localStorage.getItem('devradar_theme') || 'rosepine-dawn'
+document.documentElement.setAttribute('data-theme', savedTheme)
+
 // ── Styled console signature ──────────────────────────────────────────────────
 console.log(
   '%c DevRadar ',
