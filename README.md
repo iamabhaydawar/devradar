@@ -11,9 +11,9 @@ DevRadar is an AI-powered career intelligence platform for Indian developers. It
 
 | Service | URL |
 |---|---|
-| Frontend (Vercel) | https://devradar.vercel.app |
-| Backend (Render) | https://devradar-backend.onrender.com |
-| Health check | https://devradar-backend.onrender.com/api/health |
+| Frontend (Vercel) | https://devradar-seven.vercel.app |
+| Backend (Render) | https://devradar-3v4h.onrender.com |
+| Health check | https://devradar-3v4h.onrender.com/api/health |
 
 ---
 
@@ -299,7 +299,7 @@ Each user is a single document keyed `devradar_user_{userId}`:
 
 1. Connect GitHub repo at [vercel.com](https://vercel.com)
 2. Set root directory to `frontend/`
-3. Add env var: `VITE_API_URL=https://devradar-backend.onrender.com`
+3. Add env var: `VITE_API_URL=https://devradar-3v4h.onrender.com`
 4. `vercel.json` handles SPA routing automatically
 
 ---
