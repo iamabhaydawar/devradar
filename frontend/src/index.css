@@ -8,23 +8,23 @@
   }
 
   body {
-    @apply bg-surface-900 text-white font-sans antialiased;
+    @apply bg-[#0A0F1E] text-white font-sans antialiased;
   }
 
   * {
-    @apply border-white/10;
+    @apply transition-all duration-300 ease-out;
   }
 
   ::-webkit-scrollbar {
-    @apply w-1.5;
+    @apply w-2;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-surface-800;
+    @apply bg-transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-surface-600 rounded-full;
+    @apply bg-teal-500/40 rounded-full hover:bg-teal-500/60;
   }
 }
 
