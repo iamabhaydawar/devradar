@@ -38,7 +38,7 @@ export default function App() {
   }, [])
 
   // ── Submit handler: 4-step API flow ──────────────────────────────────────
-  const handleSubmit = useCallback(async ({ stack, experience: exp }) => {
+  const handleSubmit = useCallback(async (stack, experience, goals = []) => {
     setLoading(true)
     setView('loading')
     setLoadingStep(0)
@@ -49,8 +49,8 @@ export default function App() {
       setLoadingStep(0)
       const { data: initData } = await axios.post(`${API_BASE}/api/user/init`, {
         stack,
-        experience: exp,
-        goals: [],
+        experience,
+        goals,
       })
       const newUserId = initData.userId
       setUserId(newUserId)
@@ -61,7 +61,7 @@ export default function App() {
       const { data: analyzeData } = await axios.post(`${API_BASE}/api/analyze`, {
         userId: newUserId,
         stack,
-        experience: exp,
+        experience,
       })
       setStartups(analyzeData.startups ?? [])
 
