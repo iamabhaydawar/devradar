@@ -1,111 +1,295 @@
 import { useState } from 'react'
-import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || ''
+const TEAL = '#00C4B4'
 
-const scoreColor = (score) => {
-  if (score >= 60) return 'tag-green'
-  if (score >= 30) return 'tag-amber'
-  return 'tag-red'
+// Left border color by match score
+function borderColor(score) {
+  if (score >= 80) return TEAL
+  if (score >= 60) return '#3b82f6'
+  return '#f97316'
 }
 
-export default function StartupCard({ startup, userId }) {
-  const [bookmarked, setBookmarked] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+// Large score text color
+function scoreColor(score) {
+  if (score >= 80) return TEAL
+  if (score >= 60) return '#3b82f6'
+  return '#f97316'
+}
 
-  const handleBookmark = async (e) => {
-    e.stopPropagation()
-    if (!userId || bookmarked) return
-    try {
-      await axios.post(`${API_BASE}/api/user/${userId}/bookmark`, {
-        type: 'startup',
-        name: startup.name,
-      })
-      setBookmarked(true)
-    } catch {
-      // silently fail — bookmark is nice-to-have
-    }
+export default function StartupCard({ startup, matchData, onView }) {
+  const [expanded,      setExpanded]      = useState(false)
+  const [hovered,       setHovered]       = useState(false)
+  const [watchlisted,   setWatchlisted]   = useState(false)
+  const [showQuestions, setShowQuestions] = useState(false)
+
+  const score             = matchData?.match_percentage ?? 0
+  const matching          = matchData?.matching_skills   ?? []
+  const missing           = matchData?.missing_skills    ?? []
+  const assessment        = matchData?.assessment        ?? ''
+  const recommendedAction = matchData?.recommended_action ?? ''
+  const questions         = matchData?.questions          ?? []
+
+  // Skills: show max 5 per group with "+N more" overflow
+  const visibleMatching = matching.slice(0, 5)
+  const extraMatching   = matching.length - visibleMatching.length
+  const visibleMissing  = missing.slice(0, 5)
+  const extraMissing    = missing.length - visibleMissing.length
+
+  const leftBorder = borderColor(score)
+  const scoreCol   = scoreColor(score)
+
+  function handleCardClick() {
+    setExpanded(v => !v)
+    onView?.(startup)
   }
 
   return (
     <div
-      className="card cursor-pointer hover:border-white/20 transition-all duration-150"
-      onClick={() => setExpanded(v => !v)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={handleCardClick}
+      style={{
+        backgroundColor: hovered ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
+        border:     `1px solid ${hovered ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`,
+        borderLeft: `3px solid ${leftBorder}`,
+        borderRadius: '12px',
+        padding:    '16px',
+        marginBottom: '10px',
+        cursor:     'pointer',
+        transition: 'all 0.2s ease',
+        transform:  hovered ? 'scale(1.01)' : 'scale(1)',
+        boxShadow:  hovered
+          ? '0 8px 32px rgba(0,0,0,0.45)'
+          : '0 2px 8px rgba(0,0,0,0.2)',
+        overflow: 'hidden',
+      }}
     >
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-white">{startup.name}</span>
-            <span className={`tag ${scoreColor(startup.matchScore)}`}>
-              {startup.matchScore}% match
+      {/* ── Top row: name + type badge │ score ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between',
+                    alignItems: 'flex-start', gap: '12px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px',
+                        flexWrap: 'wrap', marginBottom: '2px' }}>
+            <span style={{ color: 'white', fontWeight: 700, fontSize: '15px' }}>
+              {startup.name}
             </span>
+            <span style={{
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.45)',
+              borderRadius: '5px', padding: '2px 8px',
+              fontSize: '10px', fontFamily: 'monospace',
+            }}>
+              {startup.type}
+            </span>
+            {startup.hiring && (
+              <span style={{
+                color: '#34d399', fontSize: '10px', fontFamily: 'monospace',
+                backgroundColor: 'rgba(52,211,153,0.08)',
+                border: '1px solid rgba(52,211,153,0.2)',
+                borderRadius: '4px', padding: '1px 6px',
+              }}>
+                Hiring
+              </span>
+            )}
           </div>
-          <p className="text-white/40 text-xs mt-0.5 truncate">{startup.tagline}</p>
         </div>
 
-        <button
-          onClick={handleBookmark}
-          title="Bookmark (saved to HydraDB)"
-          className={`shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-colors
-            ${bookmarked
-              ? 'bg-brand-700/60 text-brand-300'
-              : 'bg-white/5 text-white/30 hover:text-white hover:bg-white/10'
-            }`}
-        >
-          <svg className="w-3.5 h-3.5" fill={bookmarked ? 'currentColor' : 'none'}
-            viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-          </svg>
-        </button>
+        {/* Large match % */}
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{ color: scoreCol, fontSize: '24px', fontWeight: 800,
+                        fontFamily: 'monospace', lineHeight: 1 }}>
+            {score}%
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px',
+                        fontFamily: 'monospace', marginTop: '2px' }}>
+            match
+          </div>
+        </div>
       </div>
 
-      {/* Metadata chips */}
-      <div className="flex items-center gap-3 mt-2 text-xs text-white/30">
+      {/* ── Second row: location · stage · experience ── */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px',
+                    color: 'rgba(255,255,255,0.25)', fontSize: '11px', fontFamily: 'monospace' }}>
         <span>{startup.location}</span>
         <span>·</span>
-        <span>{startup.domain}</span>
+        <span>{startup.stage}</span>
         <span>·</span>
-        <span>{startup.funding}</span>
+        <span>{startup.min_experience}+ yrs exp</span>
       </div>
 
-      {/* Matched skills */}
-      {startup.matchedSkills.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {startup.matchedSkills.slice(0, 6).map(s => (
-            <span key={s} className="tag-green tag">{s}</span>
-          ))}
-        </div>
+      {/* ── Skills row: green = matching, red = missing ── */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '10px' }}>
+        {visibleMatching.map(s => (
+          <span key={s} style={{
+            backgroundColor: 'rgba(52,211,153,0.1)',
+            border: '1px solid rgba(52,211,153,0.3)',
+            color: '#34d399', borderRadius: '5px',
+            padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace',
+          }}>
+            {s}
+          </span>
+        ))}
+        {extraMatching > 0 && (
+          <span style={{ color: '#34d399', fontSize: '10px',
+                         fontFamily: 'monospace', alignSelf: 'center' }}>
+            +{extraMatching} more
+          </span>
+        )}
+        {visibleMissing.map(s => (
+          <span key={s} style={{
+            backgroundColor: 'rgba(248,113,113,0.1)',
+            border: '1px solid rgba(248,113,113,0.3)',
+            color: '#f87171', borderRadius: '5px',
+            padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace',
+          }}>
+            {s}
+          </span>
+        ))}
+        {extraMissing > 0 && (
+          <span style={{ color: '#f87171', fontSize: '10px',
+                         fontFamily: 'monospace', alignSelf: 'center' }}>
+            +{extraMissing} more
+          </span>
+        )}
+      </div>
+
+      {/* ── Assessment: italic, clamped to 2 lines ── */}
+      {assessment && (
+        <p style={{
+          color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontStyle: 'italic',
+          marginTop: '10px', lineHeight: 1.6,
+          overflow: 'hidden', display: '-webkit-box',
+          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        }}>
+          "{assessment}"
+        </p>
       )}
 
-      {/* Expanded detail */}
+      {/* ── Salary + interview preview ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    marginTop: '10px', flexWrap: 'wrap', gap: '6px' }}>
+        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px', fontFamily: 'monospace' }}>
+          ₹{startup.salary_range_lpa} LPA
+        </span>
+        <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontFamily: 'monospace' }}>
+          {startup.interview_topics?.slice(0, 2).join(' · ')}
+          {startup.interview_topics?.length > 2 && ' …'}
+        </span>
+      </div>
+
+      {/* ── Footer: View Details teal button ── */}
+      <div style={{
+        marginTop: '10px', paddingTop: '10px',
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        display: 'flex', justifyContent: 'flex-end',
+      }}>
+        <span style={{ color: TEAL, fontSize: '12px', fontWeight: 600 }}>
+          {expanded ? 'Hide Details ↑' : 'View Details →'}
+        </span>
+      </div>
+
+      {/* ── Expanded panel ── */}
       {expanded && (
-        <div className="mt-4 pt-4 border-t border-white/8 space-y-3 animate-fade-in">
-          {startup.missingSkills.length > 0 && (
-            <div>
-              <p className="text-xs text-white/30 mb-1.5">Missing from your stack</p>
-              <div className="flex flex-wrap gap-1.5">
-                {startup.missingSkills.slice(0, 6).map(s => (
-                  <span key={s} className="tag-red tag">{s}</span>
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            marginTop: '14px', paddingTop: '14px',
+            borderTop: '1px solid rgba(255,255,255,0.06)',
+          }}
+        >
+          {/* All interview topics */}
+          {startup.interview_topics?.length > 0 && (
+            <div style={{ marginBottom: '12px' }}>
+              <p style={{
+                color: 'rgba(255,255,255,0.3)', fontSize: '10px',
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+                margin: '0 0 6px',
+              }}>
+                Interview Topics
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                {startup.interview_topics.map(t => (
+                  <span key={t} style={{
+                    backgroundColor: `${TEAL}12`, border: `1px solid ${TEAL}30`,
+                    color: TEAL, borderRadius: '5px',
+                    padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace',
+                  }}>
+                    {t}
+                  </span>
                 ))}
               </div>
             </div>
           )}
 
-          <div>
-            <p className="text-xs text-white/30 mb-1.5">Open roles</p>
-            <div className="flex flex-wrap gap-1.5">
-              {startup.openRoles.map(r => (
-                <span key={r} className="tag">{r}</span>
-              ))}
+          {/* Claude recommended action */}
+          {recommendedAction && (
+            <div style={{
+              backgroundColor: `${TEAL}0d`, border: `1px solid ${TEAL}25`,
+              borderRadius: '8px', padding: '10px 12px', marginBottom: '12px',
+            }}>
+              <p style={{ color: TEAL, fontSize: '12px', margin: 0 }}>
+                → {recommendedAction}
+              </p>
             </div>
-          </div>
+          )}
 
-          <div className="flex flex-wrap gap-1.5 text-xs text-white/30">
-            {startup.perks.map(p => (
-              <span key={p} className="px-2 py-0.5 bg-white/5 rounded">{p}</span>
-            ))}
+          {/* Sample interview questions (toggleable) */}
+          {showQuestions && questions.length > 0 && (
+            <div style={{ marginBottom: '14px' }}>
+              <p style={{
+                color: 'rgba(255,255,255,0.3)', fontSize: '10px',
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+                margin: '0 0 8px',
+              }}>
+                Sample Interview Questions
+              </p>
+              <ol style={{
+                margin: 0, paddingLeft: '16px',
+                display: 'flex', flexDirection: 'column', gap: '8px',
+              }}>
+                {questions.slice(0, 3).map((q, i) => (
+                  <li key={i} style={{
+                    color: 'rgba(255,255,255,0.5)', fontSize: '12px', lineHeight: 1.55,
+                  }}>
+                    {q}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+            <button
+              onClick={() => setWatchlisted(v => !v)}
+              style={{
+                padding: '6px 14px', borderRadius: '7px',
+                fontSize: '12px', fontWeight: 600,
+                border: `1px solid ${watchlisted ? TEAL : 'rgba(255,255,255,0.12)'}`,
+                backgroundColor: watchlisted ? `${TEAL}20` : 'rgba(255,255,255,0.04)',
+                color: watchlisted ? TEAL : 'rgba(255,255,255,0.5)',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}
+            >
+              {watchlisted ? '★ Watchlisted' : '☆ Save to Watchlist'}
+            </button>
+
+            <button
+              onClick={() => setShowQuestions(v => !v)}
+              style={{
+                padding: '6px 14px', borderRadius: '7px',
+                fontSize: '12px', fontWeight: 600,
+                border: '1px solid rgba(255,255,255,0.12)',
+                backgroundColor: showQuestions
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'rgba(255,255,255,0.04)',
+                color: 'rgba(255,255,255,0.5)',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}
+            >
+              {showQuestions ? 'Hide Questions' : '💡 Practice Interview'}
+            </button>
           </div>
         </div>
       )}
