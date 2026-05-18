@@ -27,7 +27,7 @@ function formatPrize(inr) {
   return `₹${(inr / 1000).toFixed(0)}K`
 }
 
-export default function HackathonCard({ hackathon, matchScore = 0, userStack = [] }) {
+export default function HackathonCard({ hackathon, matchScore = 0, userStack = [], animIndex = 0 }) {
   const [hovered, setHovered] = useState(false)
 
   const days        = daysUntil(hackathon.deadline)
@@ -54,7 +54,10 @@ export default function HackathonCard({ hackathon, matchScore = 0, userStack = [
         padding: '14px 16px',
         marginBottom: '10px',
         transition: 'all 0.15s ease',
-        overflow: 'hidden',   // no horizontal bleed on mobile
+        overflow: 'hidden',
+        // stagger entrance animation
+        animation: 'card-fadein 0.3s ease both',
+        animationDelay: `${animIndex * 50}ms`,
       }}
     >
       {/* ── Top row: name │ match badge ── */}
@@ -85,7 +88,7 @@ export default function HackathonCard({ hackathon, matchScore = 0, userStack = [
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
         <span style={{
           color: isUrgent ? '#f87171' : 'rgba(255,255,255,0.3)',
-          fontSize: '11px', fontFamily: 'monospace',
+          fontSize: '13px', fontFamily: 'monospace',
         }}>
           {hackathon.deadline
             ? new Date(hackathon.deadline).toLocaleDateString('en-IN', {
@@ -111,7 +114,7 @@ export default function HackathonCard({ hackathon, matchScore = 0, userStack = [
       {/* ── Details row: platform · prize · duration · team size ── */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px',
-        color: 'rgba(255,255,255,0.25)', fontSize: '11px', fontFamily: 'monospace',
+        color: 'rgba(255,255,255,0.25)', fontSize: '12px', fontFamily: 'monospace',
       }}>
         {hackathon.platform && <span>{hackathon.platform}</span>}
         {prize && <><span>·</span><span>{prize}</span></>}
@@ -184,8 +187,10 @@ export default function HackathonCard({ hackathon, matchScore = 0, userStack = [
             rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
             style={{
-              color: TEAL, fontSize: '12px', fontWeight: 600,
+              color: TEAL, fontSize: '14px', fontWeight: 600,
               textDecoration: 'none',
+              display: 'inline-flex', alignItems: 'center',
+              minHeight: '44px', paddingInline: '4px',
             }}
           >
             Register →

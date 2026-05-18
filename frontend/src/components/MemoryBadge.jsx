@@ -106,6 +106,7 @@ export default function MemoryBadge({ message, urgentItems = [], lastActiveAt = 
 
       <div
         className="hydra-memory-banner"
+        title="HydraDB stores your career journey persistently. Every visit builds on the last."
         style={{
           width: '100%',
           background: 'linear-gradient(135deg, #0D2030 0%, #0A1628 100%)',

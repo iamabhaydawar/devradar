@@ -1,79 +1,271 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import StackInput from './components/StackInput.jsx'
-import Dashboard from './components/Dashboard.jsx'
+import Dashboard  from './components/Dashboard.jsx'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
+const TEAL     = '#00C4B4'
+
+// ── Loading step messages ─────────────────────────────────────────────────────
+const LOADING_STEPS = [
+  'HydraDB is recalling your journey...',
+  'Matching you with Indian startups...',
+  'Finding your next hackathon...',
+  'Asking Claude about your stack...',
+]
+
+// ── Error classification ──────────────────────────────────────────────────────
+function classifyError(err) {
+  if (!err.response)                          return 'network'
+  const status = err.response.status
+  const msg    = (err.response.data?.error ?? '').toLowerCase()
+  if (status === 408 || err.code === 'ECONNABORTED' || msg.includes('timeout')) return 'timeout'
+  if (msg.includes('hydra') || msg.includes('memory') || status === 503)         return 'hydradb'
+  return 'generic'
+}
+
+const ERROR_MESSAGES = {
+  network:  'Could not connect. Using cached data.',
+  timeout:  'AI took too long. Showing quick analysis.',
+  hydradb:  'Memory temporarily unavailable. Running in local mode.',
+  generic:  'Something went wrong. Please try again.',
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [state, setState] = useState('input') // 'input' | 'loading' | 'results'
-  const [results, setResults] = useState(null)
-  const [error, setError] = useState(null)
+  const [userId,        setUserId]        = useState(null)
+  const [userStack,     setUserStack]     = useState([])
+  const [view,          setView]          = useState('input')   // 'input'|'loading'|'dashboard'
+  const [startups,      setStartups]      = useState([])
+  const [hackathons,    setHackathons]    = useState([])
+  const [gapReport,     setGapReport]     = useState(null)
+  const [returnContext, setReturnContext] = useState(null)
+  const [loading,       setLoading]       = useState(false)
+  const [loadingStep,   setLoadingStep]   = useState(0)
+  const [error,         setError]         = useState(null)
 
-  const handleAnalyze = useCallback(async ({ stack, userId }) => {
-    setState('loading')
-    setError(null)
-    try {
-      const { data } = await axios.post(`${API_BASE}/api/analyze`, { stack, userId })
-      setResults(data)
-      if (data.userId) {
-        localStorage.setItem('devradar_user_id', data.userId)
-      }
-      setState('results')
-    } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong. Check backend.')
-      setState('input')
-    }
+  // ── Check returning user on mount ────────────────────────────────────────────
+  useEffect(() => {
+    const savedId = localStorage.getItem('devradar_user_id')
+    if (!savedId) return
+    setUserId(savedId)
+    axios.get(`${API_BASE}/api/return-context/${savedId}`)
+      .then(({ data }) => { if (data.hasHistory) setReturnContext(data) })
+      .catch(() => {}) // non-critical
   }, [])
 
-  const handleReset = useCallback(() => {
-    setState('input')
-    setResults(null)
+  // ── 4-step submit ─────────────────────────────────────────────────────────────
+  const handleSubmit = useCallback(async (stack, experience, goals = []) => {
+    setLoading(true)
+    setView('loading')
+    setLoadingStep(0)
     setError(null)
+
+    try {
+      // Step 0 — init user in HydraDB
+      const { data: initData } = await axios.post(`${API_BASE}/api/user/init`, {
+        stack, experience, goals,
+      })
+      const newUserId = initData.userId
+      setUserId(newUserId)
+      localStorage.setItem('devradar_user_id', newUserId)
+
+      // Step 1 — match startups + Claude deep-analyzes top 5
+      setLoadingStep(1)
+      const { data: analyzeData } = await axios.post(`${API_BASE}/api/analyze`, {
+        userId: newUserId, stack, experience,
+      })
+      const fetchedStartups = analyzeData.startups ?? []
+      setStartups(fetchedStartups)
+      setUserStack(stack)
+
+      // ─ Early reveal: show dashboard with first 5 startups immediately ─
+      setView('dashboard')
+
+      // Step 2 — rank hackathons (background — dashboard shows skeleton)
+      setLoadingStep(2)
+      const { data: hackData } = await axios.get(
+        `${API_BASE}/api/hackathons/${newUserId}?stack=${encodeURIComponent(stack.join(','))}`
+      )
+      setHackathons(hackData.ranked_hackathons ?? [])
+
+      // Step 3 — Claude gap report (background — dashboard shows skeleton)
+      setLoadingStep(3)
+      const topCompanies = fetchedStartups.slice(0, 5).map(s => s.name)
+      const { data: gapData } = await axios.post(`${API_BASE}/api/gaps`, {
+        userId: newUserId, stack, targetCompanies: topCompanies,
+      })
+      setGapReport(gapData)
+
+    } catch (err) {
+      const kind = classifyError(err)
+      setError(ERROR_MESSAGES[kind])
+      // If dashboard is already visible (partial load), keep it — just show error banner
+      if (view !== 'dashboard') setView('input')
+    } finally {
+      setLoading(false)
+    }
+  }, [view]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleReset = useCallback(() => {
+    setView('input')
+    setStartups([])
+    setHackathons([])
+    setGapReport(null)
+    setError(null)
+    setLoadingStep(0)
   }, [])
 
   return (
-    <div className="min-h-screen bg-surface-900">
-      {/* Header */}
-      <header className="border-b border-white/8 bg-surface-800/60 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <button onClick={handleReset} className="flex items-center gap-2.5 group">
-            <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center
-                            group-hover:bg-brand-500 transition-colors">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-              </svg>
+    <div style={{ backgroundColor: '#0A0F1E', minHeight: '100vh' }}>
+
+      {/* ── Header ── */}
+      <header style={{
+        backgroundColor: 'rgba(10,15,30,0.9)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        position: 'sticky', top: 0, zIndex: 30,
+      }}>
+        <div style={{
+          maxWidth: '1280px', margin: '0 auto', padding: '0 20px',
+          height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <button
+            onClick={handleReset}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              background: 'none', border: 'none', cursor: 'pointer', padding: '0',
+              minHeight: '44px',
+            }}
+          >
+            <div style={{
+              width: '28px', height: '28px', borderRadius: '8px',
+              backgroundColor: TEAL,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ color: '#0A0F1E', fontWeight: 900, fontSize: '13px' }}>⬡</span>
             </div>
-            <span className="font-semibold text-white tracking-tight">DevRadar</span>
+            <span style={{
+              color: 'white', fontWeight: 700, fontSize: '15px', letterSpacing: '-0.01em',
+            }}>
+              DevRadar
+            </span>
           </button>
 
-          <span className="text-xs text-white/30 font-mono hidden sm:block">
-            WikiThon 2025
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {userId && (
+              <span style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                color: TEAL, fontSize: '12px', fontFamily: 'monospace',
+              }}
+                title="HydraDB stores your career journey persistently. Every visit builds on the last."
+              >
+                <span style={{
+                  width: '7px', height: '7px', borderRadius: '50%', backgroundColor: TEAL,
+                  display: 'inline-block', animation: 'hdr-ping 1.6s ease-in-out infinite',
+                }} />
+                HydraDB active
+              </span>
+            )}
+            <span style={{
+              color: 'rgba(255,255,255,0.2)', fontSize: '12px', fontFamily: 'monospace',
+            }}>
+              WikiThon 2026
+            </span>
+          </div>
         </div>
       </header>
 
-      {/* Main */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {state === 'input' && (
-          <div className="animate-fade-in">
-            <StackInput onAnalyze={handleAnalyze} error={error} />
+      <style>{`
+        @keyframes hdr-ping {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 ${TEAL}60; }
+          50%       { opacity: 0.5; box-shadow: 0 0 0 5px ${TEAL}00; }
+        }
+        @keyframes app-spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
+      {/* ── Error banner (shown over dashboard on partial failure) ── */}
+      {error && view === 'dashboard' && (
+        <div style={{
+          backgroundColor: 'rgba(248,113,113,0.1)',
+          borderBottom: '1px solid rgba(248,113,113,0.3)',
+          padding: '10px 20px', textAlign: 'center',
+          color: '#f87171', fontSize: '13px', fontFamily: 'monospace',
+        }}>
+          {error}
+        </div>
+      )}
+
+      {/* ── Main ── */}
+      <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 20px' }}>
+
+        {view === 'input' && (
+          <StackInput
+            onSubmit={handleSubmit}
+            returnContext={returnContext}
+            error={error}
+          />
+        )}
+
+        {view === 'loading' && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', minHeight: '68vh', gap: '24px',
+          }}>
+            {/* Spinner */}
+            <div style={{ position: 'relative', width: '56px', height: '56px' }}>
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: '50%',
+                border: '2px solid rgba(255,255,255,0.06)',
+              }} />
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: '50%',
+                border: '2px solid transparent', borderTopColor: TEAL,
+                animation: 'app-spin 0.75s linear infinite',
+              }} />
+            </div>
+
+            {/* Step text */}
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: 'white', fontSize: '14px', fontWeight: 600, margin: '0 0 14px' }}>
+                {LOADING_STEPS[loadingStep]}
+              </p>
+              {/* Progress dots */}
+              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                {LOADING_STEPS.map((_, i) => (
+                  <div key={i} style={{
+                    height: '3px', borderRadius: '2px',
+                    width: i <= loadingStep ? '28px' : '10px',
+                    backgroundColor: i <= loadingStep ? TEAL : 'rgba(255,255,255,0.12)',
+                    transition: 'all 0.4s ease',
+                  }} />
+                ))}
+              </div>
+            </div>
+
+            <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '12px', fontFamily: 'monospace' }}>
+              Powered by Claude + HydraDB
+            </p>
           </div>
         )}
 
-        {state === 'loading' && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 animate-fade-in">
-            <div className="w-10 h-10 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
-            <p className="text-white/50 text-sm font-mono">Analyzing stack + loading memory...</p>
-          </div>
+        {view === 'dashboard' && (
+          <Dashboard
+            userId={userId}
+            userStack={userStack}
+            startups={startups}
+            hackathons={hackathons}
+            gapReport={gapReport}
+            returnContext={returnContext}
+            onReset={handleReset}
+            loading={loading}
+            loadingStep={loadingStep}
+          />
         )}
 
-        {state === 'results' && results && (
-          <div className="animate-slide-up">
-            <Dashboard results={results} onReset={handleReset} />
-          </div>
-        )}
       </main>
     </div>
   )

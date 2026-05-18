@@ -87,7 +87,10 @@ function SkillCard({ item, index, userId }) {
       } catch { /* silently continue */ }
     }
 
-    // 4. Gray out card after bar finishes filling
+    // 4. Notify Dashboard → "Saved to memory" toast
+    window.dispatchEvent(new CustomEvent('devradar:memory-saved'))
+
+    // 5. Gray out card after bar finishes filling
     setTimeout(() => setLearned(true), 500)
     setSaving(false)
   }
@@ -207,8 +210,8 @@ function SkillCard({ item, index, userId }) {
           onClick={handleLearn}
           disabled={learned || saving}
           style={{
-            padding: '5px 14px', borderRadius: '7px',
-            fontSize: '11px', fontWeight: 600, fontFamily: 'monospace',
+            padding: '0 16px', minHeight: '44px', borderRadius: '8px',
+            fontSize: '13px', fontWeight: 600, fontFamily: 'monospace',
             border: `1px solid ${learned
               ? 'rgba(52,211,153,0.35)'
               : 'rgba(255,255,255,0.12)'}`,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const TEAL = '#00C4B4'
 
@@ -16,13 +16,33 @@ function scoreColor(score) {
   return '#f97316'
 }
 
-export default function StartupCard({ startup, matchData, onView }) {
+// ── Count-up hook ─────────────────────────────────────────────────────────────
+function useCountUp(target, duration = 900) {
+  const [value, setValue] = useState(0)
+  const rafRef = useRef(null)
+  useEffect(() => {
+    if (target === 0) return
+    const start = performance.now()
+    const animate = (now) => {
+      const progress = Math.min((now - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
+      setValue(Math.round(eased * target))
+      if (progress < 1) rafRef.current = requestAnimationFrame(animate)
+    }
+    rafRef.current = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [target, duration])
+  return value
+}
+
+export default function StartupCard({ startup, matchData, onView, animIndex = 0 }) {
   const [expanded,      setExpanded]      = useState(false)
   const [hovered,       setHovered]       = useState(false)
   const [watchlisted,   setWatchlisted]   = useState(false)
   const [showQuestions, setShowQuestions] = useState(false)
 
   const score             = matchData?.match_percentage ?? 0
+  const displayScore      = useCountUp(score)
   const matching          = matchData?.matching_skills   ?? []
   const missing           = matchData?.missing_skills    ?? []
   const assessment        = matchData?.assessment        ?? ''
@@ -62,6 +82,8 @@ export default function StartupCard({ startup, matchData, onView }) {
           ? '0 8px 32px rgba(0,0,0,0.45)'
           : '0 2px 8px rgba(0,0,0,0.2)',
         overflow: 'hidden',
+        animation: 'card-fadein 0.3s ease both',
+        animationDelay: `${animIndex * 50}ms`,
       }}
     >
       {/* ── Top row: name + type badge │ score ── */}
@@ -99,7 +121,7 @@ export default function StartupCard({ startup, matchData, onView }) {
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={{ color: scoreCol, fontSize: '24px', fontWeight: 800,
                         fontFamily: 'monospace', lineHeight: 1 }}>
-            {score}%
+            {displayScore}%
           </div>
           <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px',
                         fontFamily: 'monospace', marginTop: '2px' }}>
@@ -262,10 +284,14 @@ export default function StartupCard({ startup, matchData, onView }) {
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
             <button
-              onClick={() => setWatchlisted(v => !v)}
+              onClick={() => {
+                const next = !watchlisted
+                setWatchlisted(next)
+                if (next) window.dispatchEvent(new CustomEvent('devradar:memory-saved'))
+              }}
               style={{
-                padding: '6px 14px', borderRadius: '7px',
-                fontSize: '12px', fontWeight: 600,
+                padding: '0 16px', minHeight: '44px', borderRadius: '8px',
+                fontSize: '13px', fontWeight: 600,
                 border: `1px solid ${watchlisted ? TEAL : 'rgba(255,255,255,0.12)'}`,
                 backgroundColor: watchlisted ? `${TEAL}20` : 'rgba(255,255,255,0.04)',
                 color: watchlisted ? TEAL : 'rgba(255,255,255,0.5)',
@@ -278,8 +304,8 @@ export default function StartupCard({ startup, matchData, onView }) {
             <button
               onClick={() => setShowQuestions(v => !v)}
               style={{
-                padding: '6px 14px', borderRadius: '7px',
-                fontSize: '12px', fontWeight: 600,
+                padding: '0 16px', minHeight: '44px', borderRadius: '8px',
+                fontSize: '13px', fontWeight: 600,
                 border: '1px solid rgba(255,255,255,0.12)',
                 backgroundColor: showQuestions
                   ? 'rgba(255,255,255,0.08)'
