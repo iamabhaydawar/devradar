@@ -1,9 +1,9 @@
 ﻿# DevRadar
-**Your career. One screen. Always remembered.**
+**Your Guide to Real-Time Developer Discovery**
 
 > Built for **WikiThon 2026** â€” "Build your own Wikipedia with HydraDB"
 
-DevRadar is an AI-powered career intelligence platform for Indian developers. It maps your tech stack into a live knowledge graph, matches you against 20 top Indian startups, surfaces relevant hackathons, identifies skill gaps, lets you chat with your own career wiki â€” and **remembers everything across sessions using HydraDB**.
+DevRadar is an AI-powered career intelligence platform for Indian developers. It maps your tech stack into a live knowledge graph, matches you against 20 top Indian startups, surfaces relevant hackathons, identifies skill gaps, lets you chat with your own career wiki, and **remembers everything across sessions using HydraDB**.
 
 ---
 
