@@ -83,7 +83,7 @@ export default function App() {
       setGapReport(gapData)
 
       setUserStack(stack)
-      setExperience(exp)
+      setExperience(experience)
       setView('dashboard')
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.')
