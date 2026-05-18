@@ -57,67 +57,73 @@ App runs at **http://localhost:5173**
 
 ```mermaid
 flowchart TD
-    subgraph Browser["Browser â€” React 18"]
-        A[OnboardingWizard\n4-step first-run setup] --> B{App State Machine}
+    subgraph Browser["Browser - React 18 (Vite)"]
+        A[OnboardingWizard\ncreates profile] --> B{App state}
         B -->|checking| LS[LoadingScreen]
         B -->|onboarding| A
-        B -->|returning| RS[ReturningScreen\npersonalised welcome]
-        B -->|app + loading| LS
-        B -->|app| MAIN[Main Layout]
+        B -->|returning| RS[ReturningScreen]
+        B -->|app| MAIN[Main graph layout]
 
-        MAIN --> SB[Sidebar\ngraph Â· list Â· search]
-        MAIN --> CG[CareerGraph\nvis-network knowledge graph]
-        MAIN --> EG[EmptyGraphState\nfeed prompts]
-        MAIN --> DP[DetailPanel\nnode detail]
-
-        SB --> RP[Right Panels]
-        RP --> IN[IngestPanel\npaste Â· URL Â· screenshot]
-        RP --> CH[ChatInterface\nwiki-grounded Q&A]
-        RP --> RM[RoadmapView\nweek-by-week plan]
-        RP --> JV[JourneyView\ncareer timeline]
-
-        MAIN --> TS[ThemeSwitcher\n3 light themes]
+        MAIN --> SB[Sidebar]
+        MAIN --> CG[CareerGraph]
+        MAIN --> EG[EmptyGraphState]
+        MAIN --> DP[DetailPanel]
+        MAIN --> RP[Right panel router]
+        RP --> IN[IngestPanel]
+        RP --> CH[ChatInterface]
+        RP --> RM[RoadmapView]
+        RP --> JV[JourneyView]
     end
 
-    subgraph Backend["Backend â€” Node.js + Express"]
-        API["/api/* â€” 11 endpoints"]
-        API --> INIT[POST /user/init\ncreate profile]
-        API --> ANL[POST /analyze\nstack Ã— startups]
-        API --> GAP[POST /gaps\nskill gap report]
-        API --> HACK[GET /hackathons/:id\nranked by stack]
-        API --> RET[GET /return-context/:id\npersonalised message]
-        API --> ING[POST /ingest\n2-step LLM pipeline]
-        API --> WIKI[GET /wiki-pages/:id\nall wiki pages]
-        API --> CHAT[POST /chat\nwiki-grounded answer]
-        API --> ROAD[GET /roadmap/:id\nlearning plan]
-        API --> JOUR[GET /journey/:id\ncareer log]
+    subgraph Backend["Backend - Node.js + Express"]
+        API["/api/* - 15 endpoints"]
+        API --> HEALTH[GET /health]
+        API --> USERI[POST /user/init]
+        API --> USERG[GET /user/:userId]
+        API --> USERS[POST /user/:userId/stack]
+        API --> ANL[POST /analyze]
+        API --> GAP[POST /gaps]
+        API --> HACK[GET /hackathons/:userId]
+        API --> RET[GET /return-context/:userId]
+        API --> SK[GET /skills]
+        API --> ING[POST /ingest]
+        API --> WIKIS[GET /wiki-pages/:userId]
+        API --> WIKI[GET /wiki/:userId/:pageType/:pageName]
+        API --> CHAT[POST /chat]
+        API --> ROAD[GET /roadmap/:userId]
+        API --> JOUR[GET /journey/:userId]
+        API --> GRAPH[GET /graph-data/:userId]
     end
 
-    subgraph AI["AI Layer"]
-        GROQ[Groq\nllama-3.3-70b\nFREE â€” primary]
-        CLAUDE[Anthropic Claude\nsonnet-4\nfallback]
-        GROQ -->|ingest Â· chat Â· roadmap| Backend
-        CLAUDE -->|analyze Â· gaps Â· hackathons| Backend
+    subgraph AI["AI providers"]
+        SEL[Provider selection at startup]
+        GROQ[Groq - primary when key exists]
+        CLAUDE[Claude module]
+        SEL --> GROQ
+        SEL --> CLAUDE
+        GROQ -->|ingest step1/step2,\nchat, roadmap| Backend
+        CLAUDE -->|analyze, gaps,\nhackathons| Backend
+        CLAUDE -->|fallback for ingest,\nchat, roadmap| Backend
     end
 
-    subgraph Memory["HydraDB â€” Persistent Memory"]
-        HKEY[devradar_user_\{userId\}]
-        HKEY --> PROF[profile\nname Â· stack Â· experience Â· goals]
-        HKEY --> VIEWS[activity log\nstartups Â· hackathons viewed]
-        HKEY --> GAPS[gap analyses\npriority skills Â· salary impact]
-        HKEY --> WPAGES[wiki pages\nmarkdown Â· company Â· skill Â· hackathon]
-        HKEY --> ILOG[ingest log\nsources Â· pages created]
-        HKEY --> JLOG[journey log\ntyped career events]
+    subgraph Memory["HydraDB memory layer"]
+        HKEY[devradar_user_{userId}]
+        HKEY --> PROF[profile + targets + timeline]
+        HKEY --> VIEWS[startup/hackathon views]
+        HKEY --> GAPS[gap analyses]
+        HKEY --> WPAGES[wiki pages by type/name]
+        HKEY --> ILOG[ingest log]
+        HKEY --> JLOG[journey events]
     end
 
-    subgraph StaticData["Static Data â€” JSON"]
-        SD1[startups.json\n20 Indian startups]
-        SD2[hackathons.json\n15 hackathons + deadlines]
-        SD3[skills.json\n30 skills + demand scores]
+    subgraph StaticData["Static JSON datasets"]
+        SD1[startups.json]
+        SD2[hackathons.json]
+        SD3[skills.json]
     end
 
     Browser <-->|axios REST| Backend
-    Backend <-->|HydraDB SDK / Map fallback| Memory
+    Backend <-->|HydraDB SDK or in-memory Map fallback| Memory
     Backend --> StaticData
     Backend <--> AI
 ```

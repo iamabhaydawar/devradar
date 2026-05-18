@@ -28,6 +28,11 @@ import {
   matchHackathons,
 } from './claude.js'
 
+import { detectInputType, fetchURL, extractText } from './fetcher.js'
+
+// ── Load env BEFORE any lazy reads ────────────────────────────────────────────
+dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '.env') })
+
 // ── AI provider selection: Groq (free/fast) preferred, Claude as fallback ─────
 import * as groqAI from './groq.js'
 import {
@@ -42,10 +47,6 @@ const ingestStep1           = useGroq ? groqAI.ingestStep1           : claudeIng
 const ingestStep2GeneratePage = useGroq ? groqAI.ingestStep2GeneratePage : claudeIngestStep2
 const queryWiki             = useGroq ? groqAI.queryWiki             : claudeQueryWiki
 const generateRoadmap       = useGroq ? groqAI.generateRoadmap       : claudeRoadmap
-
-import { detectInputType, fetchURL, extractText } from './fetcher.js'
-
-dotenv.config()
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()

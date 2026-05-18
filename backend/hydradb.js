@@ -1,9 +1,9 @@
-// ── Constants ─────────────────────────────────────────────────────────────────
+﻿// â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const HYDRA_MEMORY_KEY = 'devradar_user_'
 const LOCAL_FALLBACK = new Map()
 
-// ── SDK init (dynamic import so missing package never crashes the server) ──────
+// â”€â”€ SDK init (dynamic import so missing package never crashes the server) â”€â”€â”€â”€â”€â”€
 
 let hydra = null
 
@@ -13,12 +13,12 @@ try {
     apiKey: process.env.HYDRADB_API_KEY,
     projectId: process.env.HYDRADB_PROJECT_ID,
   })
-  console.log('[HydraDB] SDK initialized ✓')
+  console.log('[HydraDB] SDK initialized âœ“')
 } catch (err) {
-  console.warn('[HydraDB] SDK unavailable — running on local Map fallback:', err.message)
+  console.warn('[HydraDB] SDK unavailable â€” running on local Map fallback:', err.message)
 }
 
-// ── Internal helpers ──────────────────────────────────────────────────────────
+// â”€â”€ Internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function hydraKey(userId) {
   return `${HYDRA_MEMORY_KEY}${userId}`
@@ -40,7 +40,7 @@ async function hydraSet(userId, data) {
 
 function fallbackGet(userId) {
   const data = LOCAL_FALLBACK.get(hydraKey(userId)) ?? null
-  console.log(`[HydraDB:fallback] GET ${hydraKey(userId)} →`, data ? 'found' : 'miss')
+  console.log(`[HydraDB:fallback] GET ${hydraKey(userId)} â†’`, data ? 'found' : 'miss')
   return data
 }
 
@@ -50,7 +50,7 @@ function fallbackSet(userId, data) {
   return data
 }
 
-// ── Exported functions ────────────────────────────────────────────────────────
+// â”€â”€ Exported functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Creates or retrieves a user in HydraDB.
@@ -58,7 +58,7 @@ function fallbackSet(userId, data) {
  */
 export async function initUser(userData) {
   const { userId } = userData
-  console.log(`[HydraDB] initUser → ${userId}`)
+  console.log(`[HydraDB] initUser â†’ ${userId}`)
 
   try {
     // Return existing user if already stored
@@ -70,6 +70,7 @@ export async function initUser(userData) {
 
     const newUser = {
       userId,
+      name:             userData.name             ?? '',
       stack:            userData.stack            ?? [],
       learning_stack:   userData.learning_stack   ?? [],
       experience:       userData.experience       ?? '0-1 years',
@@ -85,10 +86,10 @@ export async function initUser(userData) {
       journey:          [],
     }
 
+    // Always write to local fallback Map so reads work even if HydraDB is flaky
+    fallbackSet(userId, newUser)
     if (hydra) {
       await hydraSet(userId, newUser)
-    } else {
-      fallbackSet(userId, newUser)
     }
 
     console.log(`[HydraDB] initUser: new user created for ${userId}`)
@@ -122,10 +123,12 @@ export async function initUser(userData) {
  * Returns the full user profile and journey history.
  */
 export async function getUser(userId) {
-  console.log(`[HydraDB] getUser → ${userId}`)
+  console.log(`[HydraDB] getUser â†’ ${userId}`)
   try {
-    const user = hydra ? await hydraGet(userId) : fallbackGet(userId)
-    return user
+    // Try HydraDB first; if null or missing, fall through to local Map
+    const user = hydra ? await hydraGet(userId) : null
+    if (user) return user
+    return fallbackGet(userId)
   } catch (err) {
     console.error(`[HydraDB] getUser error for ${userId}:`, err.message)
     return fallbackGet(userId)
@@ -136,17 +139,16 @@ export async function getUser(userId) {
  * Replaces the user's stack array.
  */
 export async function updateStack(userId, newStack) {
-  console.log(`[HydraDB] updateStack → ${userId}`, newStack)
+  console.log(`[HydraDB] updateStack â†’ ${userId}`, newStack)
   try {
     const user = await getUser(userId)
     if (!user) throw new Error(`User ${userId} not found`)
 
     const updated = { ...user, stack: newStack }
 
+    fallbackSet(userId, updated)
     if (hydra) {
       await hydraSet(userId, updated)
-    } else {
-      fallbackSet(userId, updated)
     }
 
     return updated
@@ -163,7 +165,7 @@ export async function updateStack(userId, newStack) {
  * Appends a startup view event with timestamp.
  */
 export async function recordStartupView(userId, startupId, startupName) {
-  console.log(`[HydraDB] recordStartupView → ${userId} | ${startupName}`)
+  console.log(`[HydraDB] recordStartupView â†’ ${userId} | ${startupName}`)
   try {
     const user = await getUser(userId)
     if (!user) throw new Error(`User ${userId} not found`)
@@ -177,10 +179,9 @@ export async function recordStartupView(userId, startupId, startupName) {
     const startups_viewed = [...(user.startups_viewed ?? []), entry]
     const updated = { ...user, startups_viewed }
 
+    fallbackSet(userId, updated)
     if (hydra) {
       await hydraSet(userId, updated)
-    } else {
-      fallbackSet(userId, updated)
     }
 
     return updated
@@ -198,7 +199,7 @@ export async function recordStartupView(userId, startupId, startupName) {
  * Appends a hackathon view event with timestamp.
  */
 export async function recordHackathonView(userId, hackathonId, hackathonName) {
-  console.log(`[HydraDB] recordHackathonView → ${userId} | ${hackathonName}`)
+  console.log(`[HydraDB] recordHackathonView â†’ ${userId} | ${hackathonName}`)
   try {
     const user = await getUser(userId)
     if (!user) throw new Error(`User ${userId} not found`)
@@ -212,10 +213,9 @@ export async function recordHackathonView(userId, hackathonId, hackathonName) {
     const hackathons_viewed = [...(user.hackathons_viewed ?? []), entry]
     const updated = { ...user, hackathons_viewed }
 
+    fallbackSet(userId, updated)
     if (hydra) {
       await hydraSet(userId, updated)
-    } else {
-      fallbackSet(userId, updated)
     }
 
     return updated
@@ -233,7 +233,7 @@ export async function recordHackathonView(userId, hackathonId, hackathonName) {
  * Saves a gap analysis result. Keeps only the last 5.
  */
 export async function saveGapAnalysis(userId, analysisResult) {
-  console.log(`[HydraDB] saveGapAnalysis → ${userId}`)
+  console.log(`[HydraDB] saveGapAnalysis â†’ ${userId}`)
   try {
     const user = await getUser(userId)
     if (!user) throw new Error(`User ${userId} not found`)
@@ -246,10 +246,9 @@ export async function saveGapAnalysis(userId, analysisResult) {
     const gap_analyses = [...(user.gap_analyses ?? []), entry].slice(-5)
     const updated = { ...user, gap_analyses }
 
+    fallbackSet(userId, updated)
     if (hydra) {
       await hydraSet(userId, updated)
-    } else {
-      fallbackSet(userId, updated)
     }
 
     return updated
@@ -273,7 +272,7 @@ export async function saveGapAnalysis(userId, analysisResult) {
  *   { hasHistory: false, message: "", urgentItems: [] }
  */
 export async function getReturnContext(userId, startups, hackathons) {
-  console.log(`[HydraDB] getReturnContext → ${userId}`)
+  console.log(`[HydraDB] getReturnContext â†’ ${userId}`)
   const empty = { hasHistory: false, message: '', urgentItems: [] }
 
   try {
@@ -290,7 +289,7 @@ export async function getReturnContext(userId, startups, hackathons) {
     const now = new Date()
     const urgentItems = []
 
-    // Hackathons they viewed — check deadline urgency
+    // Hackathons they viewed â€” check deadline urgency
     for (const viewed of viewedHackathons) {
       const live = hackathons.find(h => h.id === viewed.hackathonId)
       if (!live) continue
@@ -300,7 +299,7 @@ export async function getReturnContext(userId, startups, hackathons) {
       }
     }
 
-    // Startups they viewed — check still hiring
+    // Startups they viewed â€” check still hiring
     for (const viewed of viewedStartups) {
       const live = startups.find(s => s.id === viewed.startupId)
       if (live?.hiring) {
@@ -324,9 +323,9 @@ export async function getReturnContext(userId, startups, hackathons) {
     }
 
     if (gapSkill) {
-      message += `Your top skill gap was ${gapSkill} — let's see how your stack looks now.`
+      message += `Your top skill gap was ${gapSkill} â€” let's see how your stack looks now.`
     } else if (stack.length > 0) {
-      message += `Your stack has ${stack.length} skills — here's what's changed.`
+      message += `Your stack has ${stack.length} skills â€” here's what's changed.`
     }
 
     urgentItems.sort((a, b) => (a.daysLeft ?? 999) - (b.daysLeft ?? 999))
@@ -344,7 +343,7 @@ export async function getReturnContext(userId, startups, hackathons) {
   } catch (err) {
     console.error(`[HydraDB] getReturnContext error for ${userId}:`, err.message)
 
-    // Fallback path — same logic using Map
+    // Fallback path â€” same logic using Map
     const user = fallbackGet(userId)
     if (!user) return empty
 
@@ -373,7 +372,7 @@ export async function getReturnContext(userId, startups, hackathons) {
   }
 }
 
-// ── Wiki page functions ───────────────────────────────────────────────────────
+// â”€â”€ Wiki page functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Saves (or replaces) a wiki page for a user.
@@ -383,7 +382,7 @@ export async function getReturnContext(userId, startups, hackathons) {
  * Returns the saved page object.
  */
 export async function saveWikiPage(userId, pageType, pageName, content, meta = {}) {
-  console.log(`[HydraDB] saveWikiPage → ${userId} | ${pageType}/${pageName}`)
+  console.log(`[HydraDB] saveWikiPage â†’ ${userId} | ${pageType}/${pageName}`)
 
   const userWithPages = await _getOrCreateUserWithPages(userId)
 
@@ -416,7 +415,7 @@ export async function saveWikiPage(userId, pageType, pageName, content, meta = {
  * Returns null if not found.
  */
 export async function getWikiPage(userId, pageType, pageName) {
-  console.log(`[HydraDB] getWikiPage → ${userId} | ${pageType}/${pageName}`)
+  console.log(`[HydraDB] getWikiPage â†’ ${userId} | ${pageType}/${pageName}`)
   const user = await _getOrCreateUserWithPages(userId)
   const key = `${pageType}/${pageName}`
   return user.wiki_pages?.find(p => p.key === key) ?? null
@@ -426,7 +425,7 @@ export async function getWikiPage(userId, pageType, pageName) {
  * Returns all wiki pages for a user.
  */
 export async function getAllWikiPages(userId) {
-  console.log(`[HydraDB] getAllWikiPages → ${userId}`)
+  console.log(`[HydraDB] getAllWikiPages â†’ ${userId}`)
   const user = await _getOrCreateUserWithPages(userId)
   return user.wiki_pages ?? []
 }
@@ -436,7 +435,7 @@ export async function getAllWikiPages(userId) {
  * Keeps the last 50 entries.
  */
 export async function appendToIngestLog(userId, entry) {
-  console.log(`[HydraDB] appendToIngestLog → ${userId}`)
+  console.log(`[HydraDB] appendToIngestLog â†’ ${userId}`)
   const user = await _getOrCreateUserWithPages(userId)
   const ingest_log = [...(user.ingest_log ?? []), {
     ...entry,
@@ -453,7 +452,7 @@ export async function appendToIngestLog(userId, entry) {
  * Extracts [[wikilinks]] and creates nodes + edges.
  */
 export async function getGraphData(userId) {
-  console.log(`[HydraDB] getGraphData → ${userId}`)
+  console.log(`[HydraDB] getGraphData â†’ ${userId}`)
   const user = await _getOrCreateUserWithPages(userId)
   const pages = user.wiki_pages ?? []
 
@@ -508,7 +507,7 @@ export async function getGraphData(userId) {
   return { nodes, edges, page_count: pages.length }
 }
 
-// ── Internal wiki helpers ─────────────────────────────────────────────────────
+// â”€â”€ Internal wiki helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function _getOrCreateUserWithPages(userId) {
   try {
@@ -532,10 +531,9 @@ async function _getOrCreateUserWithPages(userId) {
 
 async function _setUser(userId, data) {
   try {
+    fallbackSet(userId, data)
     if (hydra) {
       await hydraSet(userId, data)
-    } else {
-      fallbackSet(userId, data)
     }
   } catch {
     fallbackSet(userId, data)
@@ -547,7 +545,7 @@ async function _setUser(userId, data) {
  * event: { type, data, timestamp }
  */
 export async function updateJourney(userId, event) {
-  console.log(`[HydraDB] updateJourney → ${userId} | type: ${event.type}`)
+  console.log(`[HydraDB] updateJourney â†’ ${userId} | type: ${event.type}`)
   try {
     const user = await getUser(userId)
     if (!user) throw new Error(`User ${userId} not found`)
@@ -561,10 +559,9 @@ export async function updateJourney(userId, event) {
     const journey = [...(user.journey ?? []), journeyEvent]
     const updated = { ...user, journey }
 
+    fallbackSet(userId, updated)
     if (hydra) {
       await hydraSet(userId, updated)
-    } else {
-      fallbackSet(userId, updated)
     }
 
     return updated
@@ -581,3 +578,4 @@ export async function updateJourney(userId, event) {
     return fallbackSet(userId, updated)
   }
 }
+

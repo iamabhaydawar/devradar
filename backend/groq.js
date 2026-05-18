@@ -6,15 +6,16 @@
 
 import fetch from 'node-fetch'
 
-const GROQ_KEY  = process.env.GROQ_API_KEY
+// Read lazily so dotenv.config() in server.js fires before these are evaluated
 const GROQ_URL  = 'https://api.groq.com/openai/v1/chat/completions'
 const MODEL     = 'llama-3.3-70b-versatile'
 
-export const isAvailable = () => Boolean(GROQ_KEY)
+export const isAvailable = () => Boolean(process.env.GROQ_API_KEY)
 
 // ── Core chat helper ──────────────────────────────────────────────────────────
 
 async function groqChat(systemPrompt, userMessage, maxTokens = 1000) {
+  const GROQ_KEY = process.env.GROQ_API_KEY
   if (!GROQ_KEY) throw new Error('GROQ_API_KEY not set')
 
   const resp = await fetch(GROQ_URL, {

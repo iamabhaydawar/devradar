@@ -1,6 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
+﻿import Anthropic from '@anthropic-ai/sdk'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+// Lazy init â€” dotenv.config() in server.js runs before any function calls here
+const getClient = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const MODEL = 'claude-sonnet-4-20250514'
 const MAX_TOKENS = 1000
 const MAX_TOKENS_WIKI = 2000
@@ -9,7 +10,7 @@ const SYSTEM_PROMPT =
   'You are DevRadar AI. Help Indian developers understand career gaps. ' +
   'Respond with valid JSON only. No extra text. Be encouraging but honest.'
 
-// ── Internal helper ───────────────────────────────────────────────────────────
+// â”€â”€ Internal helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function parseJSON(text, fallback) {
   const match = text.match(/\{[\s\S]*\}/)
@@ -22,7 +23,7 @@ function parseJSON(text, fallback) {
 }
 
 async function callClaude(prompt) {
-  const response = await client.messages.create({
+  const response = await getClient().messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
     system: SYSTEM_PROMPT,
@@ -31,7 +32,7 @@ async function callClaude(prompt) {
   return response.content[0].text
 }
 
-// ── Exported functions ────────────────────────────────────────────────────────
+// â”€â”€ Exported functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Scores a single startup against the user's stack.
@@ -85,7 +86,7 @@ export async function generateGapReport(userStack, targetCompanies) {
     quick_wins: [],
     long_term: [],
     overall_message:
-      'We could not generate your report right now. Try again in a moment — your stack looks solid!',
+      'We could not generate your report right now. Try again in a moment â€” your stack looks solid!',
   }
 
   try {
@@ -218,10 +219,10 @@ Return JSON with every hackathon included, match_score added:
   }
 }
 
-// ── LLM Wiki ingest pipeline ──────────────────────────────────────────────────
+// â”€â”€ LLM Wiki ingest pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
- * Step 1 of ingest pipeline — extracts structured entities from raw content.
+ * Step 1 of ingest pipeline â€” extracts structured entities from raw content.
  * Returns: { companies, skills, hackathons, gaps, summary }
  */
 export async function ingestStep1(content, userStack = []) {
@@ -248,7 +249,7 @@ Extract and return JSON:
 
 Only include entities actually mentioned or strongly implied by the content. Return valid JSON only.`
 
-    const response = await client.messages.create({
+    const response = await getClient().messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS_WIKI,
       system: 'You are a career intelligence extractor. Return valid JSON only. No extra text.',
@@ -263,7 +264,7 @@ Only include entities actually mentioned or strongly implied by the content. Ret
 }
 
 /**
- * Step 2 of ingest pipeline — generates a markdown wiki page for one entity.
+ * Step 2 of ingest pipeline â€” generates a markdown wiki page for one entity.
  * entityType: 'company' | 'skill' | 'hackathon' | 'gap' | 'note'
  * entity: the extracted entity object from step 1
  * Returns: markdown string with YAML frontmatter
@@ -309,7 +310,7 @@ updated: ${new Date().toISOString().split('T')[0]}
 Use [[type/name]] wikilinks to connect related entities (e.g., [[skill/react]], [[company/razorpay]]).
 Keep it concise and actionable. Return only the markdown, no extra text.`
 
-    const response = await client.messages.create({
+    const response = await getClient().messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS_WIKI,
       system: 'You are a career wiki writer. Generate clean, actionable markdown wiki pages. Return only the markdown content.',
@@ -364,7 +365,7 @@ Rules:
 - Be specific and actionable
 - Return JSON: { "answer": "your answer with [citations]", "cited_keys": ["key1", "key2"] }`
 
-    const response = await client.messages.create({
+    const response = await getClient().messages.create({
       model: MODEL,
       max_tokens: 600,
       system: 'You are a career intelligence assistant. Answer questions from a developer\'s personal wiki. Be concise and cite your sources. Return valid JSON only.',
@@ -435,7 +436,7 @@ Generate a practical 4-week roadmap. Return JSON:
 
 Be specific, realistic, and actionable. Prioritize skills that unlock multiple job opportunities.`
 
-    const response = await client.messages.create({
+    const response = await getClient().messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS_WIKI,
       system: 'You are a developer career coach. Generate specific, actionable learning roadmaps. Return valid JSON only.',
@@ -449,3 +450,4 @@ Be specific, realistic, and actionable. Prioritize skills that unlock multiple j
     return fallback
   }
 }
+
