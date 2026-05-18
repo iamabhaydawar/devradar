@@ -70,14 +70,19 @@ export async function initUser(userData) {
 
     const newUser = {
       userId,
-      stack: userData.stack ?? [],
-      experience: userData.experience ?? '0-1 years',
-      goals: userData.goals ?? [],
-      created_at: userData.created_at ?? new Date().toISOString(),
-      startups_viewed: [],
-      hackathons_viewed: [],
-      gap_analyses: [],
-      journey: [],
+      stack:            userData.stack            ?? [],
+      learning_stack:   userData.learning_stack   ?? [],
+      experience:       userData.experience       ?? '0-1 years',
+      goals:            userData.goals            ?? [],
+      target_role:      userData.target_role      ?? '',
+      target_companies: userData.target_companies ?? [],
+      timeline:         userData.timeline         ?? '',
+      learning_style:   userData.learning_style   ?? '',
+      created_at:       userData.created_at       ?? new Date().toISOString(),
+      startups_viewed:  [],
+      hackathons_viewed:[],
+      gap_analyses:     [],
+      journey:          [],
     }
 
     if (hydra) {
@@ -95,14 +100,19 @@ export async function initUser(userData) {
 
     const newUser = {
       userId,
-      stack: userData.stack ?? [],
-      experience: userData.experience ?? '0-1 years',
-      goals: userData.goals ?? [],
-      created_at: userData.created_at ?? new Date().toISOString(),
-      startups_viewed: [],
-      hackathons_viewed: [],
-      gap_analyses: [],
-      journey: [],
+      stack:            userData.stack            ?? [],
+      learning_stack:   userData.learning_stack   ?? [],
+      experience:       userData.experience       ?? '0-1 years',
+      goals:            userData.goals            ?? [],
+      target_role:      userData.target_role      ?? '',
+      target_companies: userData.target_companies ?? [],
+      timeline:         userData.timeline         ?? '',
+      learning_style:   userData.learning_style   ?? '',
+      created_at:       userData.created_at       ?? new Date().toISOString(),
+      startups_viewed:  [],
+      hackathons_viewed:[],
+      gap_analyses:     [],
+      journey:          [],
     }
     return fallbackSet(userId, newUser)
   }
@@ -322,7 +332,15 @@ export async function getReturnContext(userId, startups, hackathons) {
     urgentItems.sort((a, b) => (a.daysLeft ?? 999) - (b.daysLeft ?? 999))
 
     console.log(`[HydraDB] getReturnContext: ${urgentItems.length} urgent items for ${userId}`)
-    return { hasHistory: true, message: message.trim(), urgentItems }
+    return {
+      hasHistory: true,
+      message: message.trim(),
+      urgentItems,
+      name: user.name ?? '',
+      stack: stack,
+      learning_stack: user.learning_stack ?? [],
+      lastVisit: user.last_visit ?? user.created_at ?? null,
+    }
   } catch (err) {
     console.error(`[HydraDB] getReturnContext error for ${userId}:`, err.message)
 
@@ -342,11 +360,185 @@ export async function getReturnContext(userId, startups, hackathons) {
       }
     }
 
+    const fallbackUser = fallbackGet(userId)
     return {
       hasHistory: true,
       message: `Welcome back! Your session was loaded from local memory.`,
       urgentItems,
+      name: fallbackUser?.name ?? '',
+      stack: fallbackUser?.stack ?? [],
+      learning_stack: fallbackUser?.learning_stack ?? [],
+      lastVisit: fallbackUser?.last_visit ?? null,
     }
+  }
+}
+
+// ── Wiki page functions ───────────────────────────────────────────────────────
+
+/**
+ * Saves (or replaces) a wiki page for a user.
+ * pageType: 'company' | 'skill' | 'hackathon' | 'gap' | 'note'
+ * pageName: slug (e.g. 'razorpay', 'typescript')
+ * content: markdown string with YAML frontmatter
+ * Returns the saved page object.
+ */
+export async function saveWikiPage(userId, pageType, pageName, content, meta = {}) {
+  console.log(`[HydraDB] saveWikiPage → ${userId} | ${pageType}/${pageName}`)
+
+  const userWithPages = await _getOrCreateUserWithPages(userId)
+
+  const pages = userWithPages.wiki_pages ?? []
+  const key = `${pageType}/${pageName}`
+  const now = new Date().toISOString()
+
+  const existing = pages.findIndex(p => p.key === key)
+  const page = {
+    key,
+    pageType,
+    pageName,
+    content,
+    meta,
+    created_at: existing >= 0 ? pages[existing].created_at : now,
+    updated_at: now,
+  }
+
+  const updated_pages = existing >= 0
+    ? pages.map((p, i) => (i === existing ? page : p))
+    : [...pages, page]
+
+  const updated = { ...userWithPages, wiki_pages: updated_pages }
+  await _setUser(userId, updated)
+  return page
+}
+
+/**
+ * Retrieves a single wiki page by type + name.
+ * Returns null if not found.
+ */
+export async function getWikiPage(userId, pageType, pageName) {
+  console.log(`[HydraDB] getWikiPage → ${userId} | ${pageType}/${pageName}`)
+  const user = await _getOrCreateUserWithPages(userId)
+  const key = `${pageType}/${pageName}`
+  return user.wiki_pages?.find(p => p.key === key) ?? null
+}
+
+/**
+ * Returns all wiki pages for a user.
+ */
+export async function getAllWikiPages(userId) {
+  console.log(`[HydraDB] getAllWikiPages → ${userId}`)
+  const user = await _getOrCreateUserWithPages(userId)
+  return user.wiki_pages ?? []
+}
+
+/**
+ * Appends an entry to the user's ingest activity log.
+ * Keeps the last 50 entries.
+ */
+export async function appendToIngestLog(userId, entry) {
+  console.log(`[HydraDB] appendToIngestLog → ${userId}`)
+  const user = await _getOrCreateUserWithPages(userId)
+  const ingest_log = [...(user.ingest_log ?? []), {
+    ...entry,
+    timestamp: entry.timestamp ?? new Date().toISOString(),
+  }].slice(-50)
+
+  const updated = { ...user, ingest_log }
+  await _setUser(userId, updated)
+  return ingest_log
+}
+
+/**
+ * Builds a lightweight graph dataset from the user's wiki pages.
+ * Extracts [[wikilinks]] and creates nodes + edges.
+ */
+export async function getGraphData(userId) {
+  console.log(`[HydraDB] getGraphData → ${userId}`)
+  const user = await _getOrCreateUserWithPages(userId)
+  const pages = user.wiki_pages ?? []
+
+  const nodes = []
+  const edges = []
+  const nodeSet = new Set()
+
+  const typeColors = {
+    company: { background: '#F97316', border: '#EA6A0A' },
+    skill: { background: '#3B82F6', border: '#2563EB' },
+    hackathon: { background: '#8B5CF6', border: '#7C3AED' },
+    gap: { background: '#EF4444', border: '#DC2626' },
+    note: { background: '#94A3B8', border: '#64748B' },
+  }
+
+  for (const page of pages) {
+    const id = page.key
+    if (!nodeSet.has(id)) {
+      nodeSet.add(id)
+      nodes.push({
+        id,
+        label: page.pageName.replace(/-/g, ' '),
+        group: page.pageType,
+        color: typeColors[page.pageType] ?? typeColors.note,
+        title: `${page.pageType}: ${page.pageName}`,
+      })
+    }
+
+    // Extract [[wikilinks]] from content
+    const links = [...(page.content ?? '').matchAll(/\[\[([^\]]+)\]\]/g)].map(m => m[1])
+    for (const link of links) {
+      const parts = link.split('/')
+      const linkedType = parts.length > 1 ? parts[0] : page.pageType
+      const linkedName = parts.length > 1 ? parts[1] : parts[0]
+      const linkedId = `${linkedType}/${linkedName}`
+
+      if (!nodeSet.has(linkedId)) {
+        nodeSet.add(linkedId)
+        nodes.push({
+          id: linkedId,
+          label: linkedName.replace(/-/g, ' '),
+          group: linkedType,
+          color: typeColors[linkedType] ?? typeColors.note,
+          title: linkedId,
+        })
+      }
+
+      edges.push({ from: id, to: linkedId })
+    }
+  }
+
+  return { nodes, edges, page_count: pages.length }
+}
+
+// ── Internal wiki helpers ─────────────────────────────────────────────────────
+
+async function _getOrCreateUserWithPages(userId) {
+  try {
+    const user = hydra ? await hydraGet(userId) : fallbackGet(userId)
+    if (user) return user
+    // Create a minimal user record so wiki operations can proceed
+    const minimal = {
+      userId,
+      stack: [],
+      wiki_pages: [],
+      ingest_log: [],
+      created_at: new Date().toISOString(),
+    }
+    await _setUser(userId, minimal)
+    return minimal
+  } catch (err) {
+    console.error(`[HydraDB] _getOrCreateUserWithPages error for ${userId}:`, err.message)
+    return fallbackGet(userId) ?? { userId, wiki_pages: [], ingest_log: [] }
+  }
+}
+
+async function _setUser(userId, data) {
+  try {
+    if (hydra) {
+      await hydraSet(userId, data)
+    } else {
+      fallbackSet(userId, data)
+    }
+  } catch {
+    fallbackSet(userId, data)
   }
 }
 
