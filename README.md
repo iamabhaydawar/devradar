@@ -107,7 +107,7 @@ flowchart TD
     end
 
     subgraph Memory["HydraDB memory layer"]
-        HKEY[devradar_user_{userId}]
+        HKEY["devradar_user_(userId)"]
         HKEY --> PROF[profile + targets + timeline]
         HKEY --> VIEWS[startup/hackathon views]
         HKEY --> GAPS[gap analyses]
@@ -206,42 +206,50 @@ checking â†’ onboarding â†’ [loading] â†’ app
 
 ```
 devradar/
-â”œâ”€â”€ backend/
-â”‚   â”œâ”€â”€ server.js           # Express API â€” 15 endpoints
-â”‚   â”œâ”€â”€ hydradb.js          # HydraDB SDK wrapper + Map fallback
-â”‚   â”œâ”€â”€ claude.js           # Claude AI â€” analyze, gaps, hackathons, roadmap
-â”‚   â”œâ”€â”€ groq.js             # Groq AI â€” ingest, chat, roadmap (primary)
-â”‚   â”œâ”€â”€ fetcher.js          # URL fetch + input type detection
-â”‚   â”œâ”€â”€ seed-demo.js        # Demo data seeder
-â”‚   â”œâ”€â”€ render.yaml         # Render deployment config
-â”‚   â”œâ”€â”€ .env.example        # Environment variable template
-â”‚   â””â”€â”€ data/
-â”‚       â”œâ”€â”€ startups.json   # 20 Indian startup profiles with tech stacks
-â”‚       â”œâ”€â”€ hackathons.json # 15 hackathons with deadlines + prize pools
-â”‚       â””â”€â”€ skills.json     # 30 skills with demand scores + salary data
-â””â”€â”€ frontend/
-    â”œâ”€â”€ vercel.json         # Vercel deployment config
-    â””â”€â”€ src/
-        â”œâ”€â”€ App.jsx                      # State machine + graph builder
-        â”œâ”€â”€ index.css                    # 3-theme CSS custom property system
-        â”œâ”€â”€ main.jsx                     # Theme flash prevention
-        â”œâ”€â”€ hooks/
-        â”‚   â””â”€â”€ useTheme.js              # Theme read/write hook
-        â””â”€â”€ components/
-            â”œâ”€â”€ OnboardingWizard.jsx     # 4-step first-run wizard
-            â”œâ”€â”€ OpeningScreen.jsx        # Legacy skill picker (fallback)
-            â”œâ”€â”€ ReturningScreen.jsx      # Personalised welcome back
-            â”œâ”€â”€ CareerGraph.jsx          # vis-network knowledge graph
-            â”œâ”€â”€ EmptyGraphState.jsx      # Empty graph action cards
-            â”œâ”€â”€ Sidebar.jsx              # Navigation + search + panels
-            â”œâ”€â”€ DetailPanel.jsx          # Node detail drawer
-            â”œâ”€â”€ IngestPanel.jsx          # Wiki ingest (JD Â· URL Â· screenshot)
-            â”œâ”€â”€ ChatInterface.jsx        # Wiki-grounded career chat
-            â”œâ”€â”€ RoadmapView.jsx          # Week-by-week learning plan
-            â”œâ”€â”€ JourneyView.jsx          # Career event timeline
-            â”œâ”€â”€ MemoryBadge.jsx          # HydraDB session indicator
-            â”œâ”€â”€ ThemeSwitcher.jsx        # 3-theme switcher
-            â””â”€â”€ icons.jsx               # Icon components
+├── backend/
+│   ├── server.js           # Express API - 15 endpoints
+│   ├── hydradb.js          # HydraDB SDK wrapper + Map fallback
+│   ├── claude.js           # Claude AI - analyze, gaps, hackathons, roadmap
+│   ├── groq.js             # Groq AI - ingest, chat, roadmap (primary)
+│   ├── analyzer.js         # Stack matching and scoring helpers
+│   ├── fetcher.js          # URL fetch + input type detection
+│   ├── seed-demo.js        # Demo data seeder
+│   ├── render.yaml         # Render deployment config
+│   ├── .env.example        # Environment variable template
+│   └── data/
+│       ├── startups.json   # 20 Indian startup profiles with tech stacks
+│       ├── hackathons.json # 15 hackathons with deadlines + prize pools
+│       └── skills.json     # 30 skills with demand scores + salary data
+└── frontend/
+    ├── index.html          # Landing page shell + meta
+    ├── vercel.json         # Vercel deployment config
+    ├── vite.config.js      # Vite dev server + API proxy
+    └── src/
+        ├── App.jsx                      # State machine + graph builder
+        ├── index.css                    # 3-theme CSS custom property system
+        ├── main.jsx                     # Theme flash prevention
+        ├── hooks/
+        │   └── useTheme.js              # Theme read/write hook
+        └── components/
+            ├── LandingPage.jsx          # Marketing landing + CTA
+            ├── OnboardingWizard.jsx     # 4-step first-run wizard
+            ├── OpeningScreen.jsx        # Legacy skill picker (fallback)
+            ├── ReturningScreen.jsx      # Personalised welcome back
+            ├── CareerGraph.jsx          # vis-network knowledge graph
+            ├── EmptyGraphState.jsx      # Empty graph action cards
+            ├── Sidebar.jsx              # Navigation + search + panels
+            ├── DetailPanel.jsx          # Node detail drawer
+            ├── WikiPanel.jsx            # Wiki page browser
+            ├── IngestPanel.jsx          # Wiki ingest (JD / URL / screenshot)
+            ├── ChatInterface.jsx        # Wiki-grounded career chat
+            ├── RoadmapView.jsx          # Week-by-week learning plan
+            ├── JourneyView.jsx          # Career event timeline
+            ├── StackInput.jsx           # Skill stack input control
+            ├── MemoryBadge.jsx          # HydraDB session indicator
+            ├── ThemeSwitcher.jsx        # 3-theme switcher
+            ├── Logo.jsx                 # Brand mark
+            ├── DevRadarLogo.jsx         # Animated logo variant
+            └── icons.jsx                # Icon components
 ```
 
 ---
