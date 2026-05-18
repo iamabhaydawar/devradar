@@ -2,6 +2,7 @@
   "name": "devradar-backend",
   "version": "1.0.0",
   "description": "DevRadar backend — AI-powered developer career intelligence with HydraDB memory",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

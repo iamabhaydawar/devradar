@@ -1,22 +1,21 @@
-import { createClient } from 'hydradb'
-
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const HYDRA_MEMORY_KEY = 'devradar_user_'
 const LOCAL_FALLBACK = new Map()
 
-// ── SDK init ──────────────────────────────────────────────────────────────────
+// ── SDK init (dynamic import so missing package never crashes the server) ──────
 
 let hydra = null
 
 try {
+  const { createClient } = await import('hydradb')
   hydra = createClient({
     apiKey: process.env.HYDRADB_API_KEY,
     projectId: process.env.HYDRADB_PROJECT_ID,
   })
-  console.log('[HydraDB] SDK initialized')
+  console.log('[HydraDB] SDK initialized ✓')
 } catch (err) {
-  console.warn('[HydraDB] SDK init failed — using local Map fallback:', err.message)
+  console.warn('[HydraDB] SDK unavailable — running on local Map fallback:', err.message)
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
