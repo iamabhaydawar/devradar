@@ -1,4 +1,4 @@
-[
+﻿[
   {
     "id": "razorpay",
     "name": "Razorpay",
@@ -68,7 +68,7 @@
     "salary_range_lpa": "16-28",
     "interview_topics": ["DSA", "OOP", "System Design"],
     "interview_rounds": 3,
-    "hackathons_sponsored": ["Smart India Hackathon 2025"],
+    "hackathons_sponsored": ["Smart India Hackathon 2026"],
     "apply_url": "https://groww.in/careers"
   },
   {
@@ -104,7 +104,7 @@
     "salary_range_lpa": "20-36",
     "interview_topics": ["DSA", "System Design", "Database Design"],
     "interview_rounds": 4,
-    "hackathons_sponsored": ["AngelHack Global 2025"],
+    "hackathons_sponsored": ["AngelHack Global 2026"],
     "apply_url": "https://www.phonepe.com/careers"
   },
   {
@@ -194,7 +194,7 @@
     "salary_range_lpa": "14-24",
     "interview_topics": ["DSA", "System Design", "Django ORM"],
     "interview_rounds": 3,
-    "hackathons_sponsored": ["Google Solution Challenge 2025", "MLH Global Hack Week"],
+    "hackathons_sponsored": ["Google Solution Challenge 2026", "MLH Global Hack Week"],
     "apply_url": "https://unacademy.com/careers"
   },
   {
@@ -230,7 +230,7 @@
     "salary_range_lpa": "20-38",
     "interview_topics": ["DSA", "API Design", "System Design"],
     "interview_rounds": 4,
-    "hackathons_sponsored": ["Devfolio Season 10", "AngelHack Global 2025"],
+    "hackathons_sponsored": ["Devfolio Season 10", "AngelHack Global 2026"],
     "apply_url": "https://www.postman.com/company/careers"
   },
   {
@@ -266,7 +266,7 @@
     "salary_range_lpa": "14-26",
     "interview_topics": ["DSA", "OOP", "System Design"],
     "interview_rounds": 3,
-    "hackathons_sponsored": ["HackHarvard India Open", "Smart India Hackathon 2025"],
+    "hackathons_sponsored": ["HackHarvard India Open", "Smart India Hackathon 2026"],
     "apply_url": "https://www.freshworks.com/company/careers"
   },
   {
@@ -347,7 +347,7 @@
     "type": "Developer Tools",
     "stage": "Series C",
     "location": "Bangalore",
-    "description": "Instant GraphQL APIs over databases — open-source with 30K+ GitHub stars.",
+    "description": "Instant GraphQL APIs over databases â€” open-source with 30K+ GitHub stars.",
     "hiring": true,
     "skills_required": ["Go", "TypeScript", "React", "PostgreSQL", "GraphQL"],
     "nice_to_have": ["Haskell", "Kubernetes", "Docker"],
@@ -360,3 +360,4 @@
     "apply_url": "https://hasura.io/careers"
   }
 ]
+

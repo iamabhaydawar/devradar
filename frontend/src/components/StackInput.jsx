@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
@@ -98,7 +98,7 @@ export default function StackInput({ onSubmit, error }) {
       <form className="stack-card" onSubmit={submit}>
         <div className="stack-logo-row">
           <div className="stack-logo">DevRadar</div>
-          <span className="event-badge" style={{ marginTop: 0 }}>WikiThon 2025</span>
+          <span className="event-badge" style={{ marginTop: 0 }}>WikiThon 2026</span>
         </div>
         <div className="sidebar-divider" style={{ margin: '18px 0 0' }} />
 
@@ -201,3 +201,4 @@ export default function StackInput({ onSubmit, error }) {
     </main>
   )
 }
+

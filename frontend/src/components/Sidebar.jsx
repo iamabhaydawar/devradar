@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { Icon } from './icons.jsx'
 import ThemeSwitcher from './ThemeSwitcher.jsx'
 
@@ -61,7 +61,7 @@ export default function Sidebar({
         <div className="wordmark-row">
           <p className="wordmark">DevRadar</p>
         </div>
-        <span className="event-badge">WikiThon 2025</span>
+        <span className="event-badge">WikiThon 2026</span>
         <div className="sidebar-divider" />
       </div>
 
@@ -114,7 +114,7 @@ export default function Sidebar({
               onClick={() => onSelectNode(graph.nodeMap.get('user'))}
             />
             <div className="sidebar-stack" style={{ padding: '0 12px 6px 36px' }}>
-              {knownSkills.slice(0, 3).join(' · ')}
+              {knownSkills.slice(0, 3).join(' Â· ')}
             </div>
           </div>
 
@@ -246,7 +246,7 @@ export default function Sidebar({
       )}
 
       <div className="sidebar-bottom">
-        <p className="caption">{graph.nodes.length} nodes · {graph.edges.length} connections</p>
+        <p className="caption">{graph.nodes.length} nodes Â· {graph.edges.length} connections</p>
         <div className="memory-active"><span className="pulse-dot" /> HydraDB active</div>
       </div>
 
@@ -254,3 +254,4 @@ export default function Sidebar({
     </aside>
   )
 }
+

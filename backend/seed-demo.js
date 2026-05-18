@@ -1,4 +1,4 @@
-/**
+﻿/**
  * seed-demo.js
  * Pre-populates HydraDB with a demo user simulating 7 days of activity.
  * Run: node seed-demo.js
@@ -25,11 +25,11 @@ function daysAgo(n) {
 }
 
 async function seed() {
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('  DevRadar — Demo Seed Script')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”')
+  console.log('  DevRadar â€” Demo Seed Script')
+  console.log('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”')
 
-  // ── Day 0: Create user ───────────────────────────────────────────────────
+  // â”€â”€ Day 0: Create user â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   console.log('\n[Day 0] Creating demo user...')
   await initUser({
     userId: DEMO_USER_ID,
@@ -38,8 +38,8 @@ async function seed() {
     goals: ['Land a job at an Indian unicorn', 'Participate in ETHIndia'],
     created_at: daysAgo(7),
   })
-  console.log(`  ✓ User created: ${DEMO_USER_ID}`)
-  console.log('  ✓ Stack: React, Node.js, Python')
+  console.log(`  âœ“ User created: ${DEMO_USER_ID}`)
+  console.log('  âœ“ Stack: React, Node.js, Python')
 
   await updateJourney(DEMO_USER_ID, {
     type: 'account_created',
@@ -47,11 +47,11 @@ async function seed() {
     timestamp: daysAgo(7),
   })
 
-  // ── Day 1: Viewed Razorpay and Groww ────────────────────────────────────
+  // â”€â”€ Day 1: Viewed Razorpay and Groww â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   console.log('\n[Day 1] User browses startups...')
 
   await recordStartupView(DEMO_USER_ID, 'razorpay', 'Razorpay')
-  console.log('  ✓ Viewed Razorpay')
+  console.log('  âœ“ Viewed Razorpay')
 
   await updateJourney(DEMO_USER_ID, {
     type: 'startup_viewed',
@@ -60,7 +60,7 @@ async function seed() {
   })
 
   await recordStartupView(DEMO_USER_ID, 'groww', 'Groww')
-  console.log('  ✓ Viewed Groww')
+  console.log('  âœ“ Viewed Groww')
 
   await updateJourney(DEMO_USER_ID, {
     type: 'startup_viewed',
@@ -68,7 +68,7 @@ async function seed() {
     timestamp: daysAgo(6),
   })
 
-  // ── Day 3: Gap analysis — TypeScript and Docker identified ───────────────
+  // â”€â”€ Day 3: Gap analysis â€” TypeScript and Docker identified â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   console.log('\n[Day 3] Gap analysis run...')
 
   const gapAnalysisResult = {
@@ -93,7 +93,7 @@ async function seed() {
         skill: 'PostgreSQL',
         why: 'Razorpay and Groww both require strong SQL fundamentals',
         time_weeks: 2,
-        difficulty: 'Moderate — focus on indexing and query optimization',
+        difficulty: 'Moderate â€” focus on indexing and query optimization',
         resource: 'https://www.postgresql.org/docs/current/tutorial.html',
         salary_impact: '+8-12%',
       },
@@ -107,7 +107,7 @@ async function seed() {
   }
 
   await saveGapAnalysis(DEMO_USER_ID, gapAnalysisResult)
-  console.log('  ✓ Gap analysis saved: TypeScript and Docker identified as top gaps')
+  console.log('  âœ“ Gap analysis saved: TypeScript and Docker identified as top gaps')
 
   await updateJourney(DEMO_USER_ID, {
     type: 'gap_analysis_run',
@@ -115,20 +115,20 @@ async function seed() {
     timestamp: daysAgo(4),
   })
 
-  // ── Day 5: Viewed ETHIndia hackathon ─────────────────────────────────────
+  // â”€â”€ Day 5: Viewed ETHIndia hackathon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   console.log('\n[Day 5] User checks hackathons...')
 
-  await recordHackathonView(DEMO_USER_ID, 'ethindia-2025', 'ETHIndia 2025')
-  console.log('  ✓ Viewed ETHIndia 2025')
+  await recordHackathonView(DEMO_USER_ID, 'ethindia-2026', 'ETHIndia 2026')
+  console.log('  âœ“ Viewed ETHIndia 2026')
 
   await updateJourney(DEMO_USER_ID, {
     type: 'hackathon_viewed',
-    data: { hackathonId: 'ethindia-2025', hackathonName: 'ETHIndia 2025', match_score: 45 },
+    data: { hackathonId: 'ethindia-2026', hackathonName: 'ETHIndia 2026', match_score: 45 },
     timestamp: daysAgo(2),
   })
 
   await recordHackathonView(DEMO_USER_ID, 'devfolio-season-10', 'Devfolio Season 10')
-  console.log('  ✓ Viewed Devfolio Season 10')
+  console.log('  âœ“ Viewed Devfolio Season 10')
 
   await updateJourney(DEMO_USER_ID, {
     type: 'hackathon_viewed',
@@ -136,21 +136,21 @@ async function seed() {
     timestamp: daysAgo(2),
   })
 
-  // ── Day 7: Return visit — memory recall ──────────────────────────────────
-  console.log('\n[Day 7] User returns — HydraDB memory recall...')
+  // â”€â”€ Day 7: Return visit â€” memory recall â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  console.log('\n[Day 7] User returns â€” HydraDB memory recall...')
 
   await updateJourney(DEMO_USER_ID, {
     type: 'return_visit',
     data: {
       message:
-        'Welcome back! Last time you explored Razorpay and checked out ETHIndia 2025. Your top skill gap was TypeScript — let\'s see how your stack looks now.',
+        'Welcome back! Last time you explored Razorpay and checked out ETHIndia 2026. Your top skill gap was TypeScript â€” let\'s see how your stack looks now.',
     },
     timestamp: new Date().toISOString(),
   })
 
-  console.log('  ✓ Return visit journey event logged')
+  console.log('  âœ“ Return visit journey event logged')
 
-  // ── Verify ───────────────────────────────────────────────────────────────
+  // â”€â”€ Verify â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   console.log('\n[Verify] Reading demo user back from HydraDB...')
   const user = await getUser(DEMO_USER_ID)
 
@@ -161,14 +161,15 @@ async function seed() {
   console.log(`  gap_analyses     : ${user.gap_analyses.length} entries`)
   console.log(`  journey events   : ${user.journey.length} events`)
 
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”')
   console.log('  Seed complete.')
   console.log(`  Demo user ID: ${DEMO_USER_ID}`)
   console.log('  Use this ID in the frontend to demo returning-user memory.')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+  console.log('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n')
 }
 
 seed().catch(err => {
   console.error('Seed failed:', err.message)
   process.exit(1)
 })
+
