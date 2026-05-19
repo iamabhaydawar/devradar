@@ -52,6 +52,7 @@ cd frontend && npm run dev
 App runs at **http://localhost:5173**
 
 ---
+<img width="1915" height="1075" alt="image" src="https://github.com/user-attachments/assets/4eba8571-733c-453d-8b4d-6e3c10f15477" />
 
 ## Architecture
 
